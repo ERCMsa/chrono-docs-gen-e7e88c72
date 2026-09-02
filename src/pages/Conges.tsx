@@ -19,6 +19,7 @@ import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
+import CongesImportExcel from "@/components/CongesImportExcel";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -125,6 +126,14 @@ export default function Conges() {
           <h1 className="text-3xl font-bold tracking-tight">Congés</h1>
           <p className="text-muted-foreground mt-1">Gestion des demandes de congé</p>
         </div>
+        <div className="flex items-center gap-2">
+        <CongesImportExcel
+          workers={workers}
+          onImported={() => {
+            qc.invalidateQueries({ queryKey: ["conges"] });
+            qc.invalidateQueries({ queryKey: ["worker-conges"] });
+          }}
+        />
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nouveau congé</Button>
@@ -183,6 +192,7 @@ export default function Conges() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
