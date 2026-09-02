@@ -19,6 +19,7 @@ import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
+import CongesImportExcel from "@/components/CongesImportExcel";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
