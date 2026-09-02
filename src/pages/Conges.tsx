@@ -191,6 +191,7 @@ export default function Conges() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
