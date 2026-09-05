@@ -20,6 +20,9 @@ import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import CongesImportExcel from "@/components/CongesImportExcel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -45,11 +48,13 @@ export default function Conges() {
   const [reason, setReason] = useState("");
   const [filterWorker, setFilterWorker] = useState("all");
   const [filterType, setFilterType] = useState<"all" | CongeType>("all");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
 
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: conges, isLoading } = useQuery({ queryKey: ["conges"], queryFn: () => getConges() });
+
 
   const reset = () => {
     setEditing(null); setWorkerId(""); setWorkerIds([]); setMultiMode(false);
@@ -108,16 +113,59 @@ export default function Conges() {
 
   const duration = useMemo(() => (start && end && new Date(end) >= new Date(start) ? congeDuration(start, end) : 0), [start, end]);
 
+  const years = useMemo(() => {
+    const set = new Set<number>([now.getFullYear()]);
+    (conges ?? []).forEach((c) => set.add(new Date(c.start_date).getFullYear()));
+    return Array.from(set).sort((a, b) => b - a);
+  }, [conges]);
+
   const filtered = useMemo(() => {
     if (!conges) return [];
+    const y = Number(filterYear);
     return conges.filter((c) => {
       if (filterWorker !== "all" && c.worker_id !== filterWorker) return false;
       if (filterType !== "all" && c.conge_type !== filterType) return false;
-      if (filterFrom && c.end_date < filterFrom) return false;
-      if (filterTo && c.start_date > filterTo) return false;
+      // period overlap with selected month/year
+      const from = filterMonth === "all" ? `${y}-01-01` : `${y}-${String(Number(filterMonth)).padStart(2, "0")}-01`;
+      const toDate = filterMonth === "all" ? new Date(y + 1, 0, 1) : new Date(y, Number(filterMonth), 1);
+      const to = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, "0")}-${String(toDate.getDate()).padStart(2, "0")}`;
+      if (c.end_date < from) return false;
+      if (c.start_date >= to) return false;
       return true;
     });
-  }, [conges, filterWorker, filterType, filterFrom, filterTo]);
+  }, [conges, filterWorker, filterType, filterYear, filterMonth]);
+
+  // ===== Droit de Congé =====
+  const DROIT_FROM = "2026-01-01";
+  const DROIT_TO = "2027-01-01";
+  const REF_DATE = new Date(2026, 5, 30); // 2026-06-30
+
+  const droitRows = useMemo(() => {
+    const list = (workers ?? []).map((w: any) => {
+      const enterDate = w.hire_date ?? w.date_debut_contrat ?? null;
+      const dayWorked = enterDate
+        ? Math.floor((REF_DATE.getTime() - new Date(enterDate).getTime()) / 86400000)
+        : 0;
+      const mw = dayWorked / 30;
+      const monthWorked = mw >= 12 ? 12 : mw < 0 ? 0 : Number(mw.toFixed(1));
+      const congeFait = (conges ?? [])
+        .filter((c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO)
+        .reduce((s, c) => s + congeDuration(c.start_date, c.end_date), 0);
+      const congeDroit = dayWorked < 365 ? Math.max(0, dayWorked) * (30 / 365) : 30;
+      return {
+        id: w.id,
+        matricule: w.matricule ?? "—",
+        name: w.full_name ?? "—",
+        monthWorked,
+        congeFait,
+        congeDroit,
+        resteConge: congeDroit - congeFait,
+        enterDate,
+      };
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [workers, conges]);
+
 
   return (
     <div className="space-y-6">
@@ -195,6 +243,13 @@ export default function Conges() {
         </div>
       </div>
 
+      <Tabs defaultValue="liste" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="liste">Congés</TabsTrigger>
+        <TabsTrigger value="droit">Droit de Congé</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="liste" className="space-y-6">
       {/* Filters */}
       <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
         <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
@@ -220,13 +275,25 @@ export default function Conges() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Du</Label>
-          <DateInput value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-9 w-[150px]" />
+          <Label className="text-xs text-muted-foreground mb-1 block">Année</Label>
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Au</Label>
-          <DateInput value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-9 w-[150px]" />
+          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les mois</SelectItem>
+              {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Total : <span className="font-semibold text-foreground">{filtered.length}</span>
         </div>
@@ -283,6 +350,49 @@ export default function Conges() {
           </tbody>
         </table>
       </div>
+      </TabsContent>
+
+      <TabsContent value="droit" className="space-y-6">
+        <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
+                <th className="p-4 font-medium">MATRICULE</th>
+                <th className="p-4 font-medium">Employée</th>
+                <th className="p-4 font-medium text-right">Month Worked</th>
+                <th className="p-4 font-medium text-right">Congé Fait</th>
+                <th className="p-4 font-medium text-right">Droit Congé</th>
+                <th className="p-4 font-medium text-right">Reste Congé</th>
+                <th className="p-4 font-medium">Date Entrée</th>
+              </tr>
+            </thead>
+            <tbody>
+              {droitRows.length === 0 ? (
+                <tr><td colSpan={7} className="p-10 text-center">
+                  <CalendarRange className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-muted-foreground">Aucune donnée</p>
+                </td></tr>
+              ) : (
+                droitRows.map((r) => (
+                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="p-4 text-sm">{r.matricule}</td>
+                    <td className="p-4 font-medium">
+                      <Link to={`/workers/${r.id}`} className="hover:underline">{r.name}</Link>
+                    </td>
+                    <td className="p-4 text-right text-sm">{r.monthWorked}</td>
+                    <td className="p-4 text-right text-sm">{r.congeFait}</td>
+                    <td className="p-4 text-right font-semibold">{r.congeDroit.toFixed(1)}</td>
+                    <td className={`p-4 text-right font-semibold ${r.resteConge < 0 ? "text-destructive" : ""}`}>{r.resteConge.toFixed(1)}</td>
+                    <td className="p-4 text-sm">{r.enterDate ? formatDateFR(r.enterDate) : "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </TabsContent>
+      </Tabs>
     </div>
+
   );
 }
