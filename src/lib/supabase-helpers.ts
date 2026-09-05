@@ -264,13 +264,21 @@ export function congeDuration(start: string, end: string): number {
   return Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 }
 
-export async function getConges(workerId?: string) {
+export async function getConges(
+  workerId?: string,
+  opts?: { from?: string; to?: string; type?: CongeType | "all" },
+) {
   let q = (supabase as any).from("conges").select("*, workers(full_name, matricule, department)").order("start_date", { ascending: false });
-  if (workerId) q = q.eq("worker_id", workerId);
+  if (workerId && workerId !== "all") q = q.eq("worker_id", workerId);
+  if (opts?.type && opts.type !== "all") q = q.eq("conge_type", opts.type);
+  // period overlap: end_date >= from AND start_date < to
+  if (opts?.from) q = q.gte("end_date", opts.from);
+  if (opts?.to) q = q.lt("start_date", opts.to);
   const { data, error } = await q;
   if (error) throw error;
   return data as CongeWithWorker[];
 }
+
 
 export async function createConge(params: { worker_id: string; start_date: string; end_date: string; conge_type: CongeType; reason?: string }) {
   if (new Date(params.end_date) < new Date(params.start_date)) {
