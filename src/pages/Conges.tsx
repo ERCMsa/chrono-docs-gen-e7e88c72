@@ -240,6 +240,13 @@ export default function Conges() {
         </div>
       </div>
 
+      <Tabs defaultValue="liste" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="liste">Congés</TabsTrigger>
+        <TabsTrigger value="droit">Droit de Congé</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="liste" className="space-y-6">
       {/* Filters */}
       <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
         <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
