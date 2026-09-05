@@ -340,6 +340,49 @@ export default function Conges() {
           </tbody>
         </table>
       </div>
+      </TabsContent>
+
+      <TabsContent value="droit" className="space-y-6">
+        <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
+                <th className="p-4 font-medium">MATRICULE</th>
+                <th className="p-4 font-medium">Employée</th>
+                <th className="p-4 font-medium text-right">Month Worked</th>
+                <th className="p-4 font-medium text-right">Congé Fait</th>
+                <th className="p-4 font-medium text-right">Droit Congé</th>
+                <th className="p-4 font-medium text-right">Reste Congé</th>
+                <th className="p-4 font-medium">Date Entrée</th>
+              </tr>
+            </thead>
+            <tbody>
+              {droitRows.length === 0 ? (
+                <tr><td colSpan={7} className="p-10 text-center">
+                  <CalendarRange className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-muted-foreground">Aucune donnée</p>
+                </td></tr>
+              ) : (
+                droitRows.map((r) => (
+                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="p-4 text-sm">{r.matricule}</td>
+                    <td className="p-4 font-medium">
+                      <Link to={`/workers/${r.id}`} className="hover:underline">{r.name}</Link>
+                    </td>
+                    <td className="p-4 text-right text-sm">{r.monthWorked}</td>
+                    <td className="p-4 text-right text-sm">{r.congeFait}</td>
+                    <td className="p-4 text-right font-semibold">{r.congeDroit.toFixed(1)}</td>
+                    <td className={`p-4 text-right font-semibold ${r.resteConge < 0 ? "text-destructive" : ""}`}>{r.resteConge.toFixed(1)}</td>
+                    <td className="p-4 text-sm">{r.enterDate ? formatDateFR(r.enterDate) : "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </TabsContent>
+      </Tabs>
     </div>
+
   );
 }
