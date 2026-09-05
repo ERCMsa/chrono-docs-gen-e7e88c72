@@ -265,13 +265,25 @@ export default function Conges() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Du</Label>
-          <DateInput value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-9 w-[150px]" />
+          <Label className="text-xs text-muted-foreground mb-1 block">Année</Label>
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Au</Label>
-          <DateInput value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-9 w-[150px]" />
+          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les mois</SelectItem>
+              {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Total : <span className="font-semibold text-foreground">{filtered.length}</span>
         </div>
