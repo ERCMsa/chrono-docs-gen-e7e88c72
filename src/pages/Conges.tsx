@@ -45,11 +45,13 @@ export default function Conges() {
   const [reason, setReason] = useState("");
   const [filterWorker, setFilterWorker] = useState("all");
   const [filterType, setFilterType] = useState<"all" | CongeType>("all");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
 
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: conges, isLoading } = useQuery({ queryKey: ["conges"], queryFn: () => getConges() });
+
 
   const reset = () => {
     setEditing(null); setWorkerId(""); setWorkerIds([]); setMultiMode(false);
