@@ -241,6 +241,8 @@ export default function GenerateDocument() {
   const avenantRef = useRef<HTMLDivElement>(null);
   const [newWorkerOpen, setNewWorkerOpen] = useState(false);
   const [newWorker, setNewWorker] = useState({ full_name: "", position: "", cin: "", phone: "" });
+  const [inlineWorkerName, setInlineWorkerName] = useState("");
+
 
   const createWorkerMutation = useMutation({
     mutationFn: () => createWorker({
