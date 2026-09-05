@@ -111,15 +111,59 @@ export default function Conges() {
   const duration = useMemo(() => (start && end && new Date(end) >= new Date(start) ? congeDuration(start, end) : 0), [start, end]);
 
   const filtered = useMemo(() => {
+  const years = useMemo(() => {
+    const set = new Set<number>([now.getFullYear()]);
+    (conges ?? []).forEach((c) => set.add(new Date(c.start_date).getFullYear()));
+    return Array.from(set).sort((a, b) => b - a);
+  }, [conges]);
+
+  const filtered = useMemo(() => {
     if (!conges) return [];
+    const y = Number(filterYear);
     return conges.filter((c) => {
       if (filterWorker !== "all" && c.worker_id !== filterWorker) return false;
       if (filterType !== "all" && c.conge_type !== filterType) return false;
-      if (filterFrom && c.end_date < filterFrom) return false;
-      if (filterTo && c.start_date > filterTo) return false;
+      // period overlap with selected month/year
+      const from = filterMonth === "all" ? `${y}-01-01` : `${y}-${String(Number(filterMonth)).padStart(2, "0")}-01`;
+      const toDate = filterMonth === "all" ? new Date(y + 1, 0, 1) : new Date(y, Number(filterMonth), 1);
+      const to = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, "0")}-${String(toDate.getDate()).padStart(2, "0")}`;
+      if (c.end_date < from) return false;
+      if (c.start_date >= to) return false;
       return true;
     });
-  }, [conges, filterWorker, filterType, filterFrom, filterTo]);
+  }, [conges, filterWorker, filterType, filterYear, filterMonth]);
+
+  // ===== Droit de Congé =====
+  const DROIT_FROM = "2026-01-01";
+  const DROIT_TO = "2027-01-01";
+  const REF_DATE = new Date(2026, 5, 30); // 2026-06-30
+
+  const droitRows = useMemo(() => {
+    const list = (workers ?? []).map((w: any) => {
+      const enterDate = w.hire_date ?? w.date_debut_contrat ?? null;
+      const dayWorked = enterDate
+        ? Math.floor((REF_DATE.getTime() - new Date(enterDate).getTime()) / 86400000)
+        : 0;
+      const mw = dayWorked / 30;
+      const monthWorked = mw >= 12 ? 12 : mw < 0 ? 0 : Number(mw.toFixed(1));
+      const congeFait = (conges ?? [])
+        .filter((c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO)
+        .reduce((s, c) => s + congeDuration(c.start_date, c.end_date), 0);
+      const congeDroit = dayWorked < 365 ? Math.max(0, dayWorked) * (30 / 365) : 30;
+      return {
+        id: w.id,
+        matricule: w.matricule ?? "—",
+        name: w.full_name ?? "—",
+        monthWorked,
+        congeFait,
+        congeDroit,
+        resteConge: congeDroit - congeFait,
+        enterDate,
+      };
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [workers, conges]);
+
 
   return (
     <div className="space-y-6">
