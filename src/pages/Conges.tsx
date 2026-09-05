@@ -20,6 +20,9 @@ import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import CongesImportExcel from "@/components/CongesImportExcel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
