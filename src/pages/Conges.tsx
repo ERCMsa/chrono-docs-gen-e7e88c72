@@ -52,8 +52,20 @@ export default function Conges() {
   const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
   const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
 
+  const period = useMemo(() => {
+    const y = Number(filterYear);
+    const from = filterMonth === "all" ? `${y}-01-01` : `${y}-${String(Number(filterMonth)).padStart(2, "0")}-01`;
+    const toDate = filterMonth === "all" ? new Date(y + 1, 0, 1) : new Date(y, Number(filterMonth), 1);
+    const to = `${toDate.getFullYear()}-${String(toDate.getMonth() + 1).padStart(2, "0")}-${String(toDate.getDate()).padStart(2, "0")}`;
+    return { from, to };
+  }, [filterYear, filterMonth]);
+
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
-  const { data: conges, isLoading } = useQuery({ queryKey: ["conges"], queryFn: () => getConges() });
+  const { data: conges, isLoading } = useQuery({
+    queryKey: ["conges", filterWorker, filterType, period.from, period.to],
+    queryFn: () => getConges(filterWorker, { from: period.from, to: period.to, type: filterType }),
+  });
+
 
 
   const reset = () => {
