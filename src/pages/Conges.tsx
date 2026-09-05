@@ -110,7 +110,6 @@ export default function Conges() {
 
   const duration = useMemo(() => (start && end && new Date(end) >= new Date(start) ? congeDuration(start, end) : 0), [start, end]);
 
-  const filtered = useMemo(() => {
   const years = useMemo(() => {
     const set = new Set<number>([now.getFullYear()]);
     (conges ?? []).forEach((c) => set.add(new Date(c.start_date).getFullYear()));
