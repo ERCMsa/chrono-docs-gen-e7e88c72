@@ -34,7 +34,7 @@ export default function ContractPreview({ worker, data, lang = "ar", logoDataUrl
     width: "210mm",
     minHeight: "297mm",
     background: "white",
-    padding: "20mm",
+    padding: "10mm",
     fontFamily: isAr ? "'Amiri', 'Times New Roman', serif" : "'Times New Roman', serif",
     color: "black",
     lineHeight: isAr ? 1.6 : 1.5,
