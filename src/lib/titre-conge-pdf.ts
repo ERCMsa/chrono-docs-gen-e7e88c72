@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import type { CongeWithWorker } from "./supabase-helpers";
 import { CONGE_TYPES, congeDuration } from "./supabase-helpers";
+import logoErcm from "@/assets/logo-ercm.png";
 
 const UNITS = ["", "UN", "DEUX", "TROIS", "QUATRE", "CINQ", "SIX", "SEPT", "HUIT", "NEUF", "DIX",
   "ONZE", "DOUZE", "TREIZE", "QUATORZE", "QUINZE", "SEIZE", "DIX-SEPT", "DIX-HUIT", "DIX-NEUF"];
@@ -35,7 +36,20 @@ function fmtDateFR(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export function generateTitreCongePdf(conge: CongeWithWorker, refNumber?: number) {
+async function imageToDataUrl(src: string): Promise<string> {
+  const response = await fetch(src);
+  if (!response.ok) throw new Error("Impossible de charger le logo ERCM");
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Impossible de lire le logo ERCM"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function generateTitreCongePdf(conge: CongeWithWorker, refNumber?: number) {
   const worker = conge.workers;
   const fullName = (worker?.full_name || "").trim();
   const parts = fullName.split(/\s+/);
@@ -52,62 +66,147 @@ export function generateTitreCongePdf(conge: CongeWithWorker, refNumber?: number
 
   const pdf = new jsPDF("p", "mm", "a4");
   const pageW = pdf.internal.pageSize.getWidth();
-  let y = 30;
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 18;
+  const contentW = pageW - margin * 2;
+  const red = [206, 22, 29] as const;
+  const ink = [26, 26, 46] as const;
+  const muted = [100, 106, 115] as const;
+  const pale = [248, 248, 249] as const;
+
+  pdf.setProperties({
+    title: `Titre de congé - ${fullName}`,
+    subject: "Titre de congé ERCM SA",
+    author: "ERCM SA",
+  });
+
+  try {
+    const logoDataUrl = await imageToDataUrl(logoErcm);
+    const logoW = 52;
+    const logoH = 33;
+    pdf.addImage(logoDataUrl, "PNG", (pageW - logoW) / 2, 10, logoW, logoH, undefined, "FAST");
+  } catch (error) {
+    console.error("Logo ERCM non chargé dans le titre de congé", error);
+  }
+
+  pdf.setDrawColor(...red);
+  pdf.setLineWidth(0.8);
+  pdf.line(margin, 47, pageW - margin, 47);
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(22);
-  pdf.text("TITRE DE CONGE", pageW / 2, y, { align: "center" });
-  y += 15;
+  pdf.setTextColor(...ink);
+  pdf.setFontSize(20);
+  pdf.text("TITRE DE CONGE", pageW / 2, 59, { align: "center" });
 
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.text(`Réf n° : ${ref}`, 20, y);
-  y += 15;
+  pdf.setTextColor(...muted);
+  pdf.setFontSize(9);
+  pdf.text("DOCUMENT ADMINISTRATIF", pageW / 2, 65, { align: "center" });
 
-  pdf.text("MR,", 20, y);
-  y += 15;
+  pdf.setFillColor(...pale);
+  pdf.setDrawColor(224, 225, 228);
+  pdf.roundedRect(margin, 72, contentW, 14, 2, 2, "FD");
 
-  const line = (label: string, value: string) => {
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...ink);
+  pdf.setFontSize(10);
+  pdf.text(`REF. N° ${ref}`, margin + 5, 81);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(...muted);
+  pdf.text(`ETABLI LE ${todayStr}`, pageW - margin - 5, 81, { align: "right" });
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...red);
+  pdf.setFontSize(10);
+  pdf.text("BENEFICIAIRE", margin, 99);
+  pdf.setDrawColor(...red);
+  pdf.setLineWidth(0.45);
+  pdf.line(margin, 102, margin + 29, 102);
+
+  const infoX = margin;
+  const infoY = 108;
+  const infoH = 43;
+  const labelW = 42;
+  pdf.setDrawColor(218, 220, 224);
+  pdf.setFillColor(252, 252, 253);
+  pdf.roundedRect(infoX, infoY, contentW, infoH, 2, 2, "FD");
+
+  const infoLine = (label: string, value: string, row: number) => {
+    const y = infoY + 10 + row * 10;
     pdf.setFont("helvetica", "bold");
-    pdf.text(`${label} :`, 20, y);
+    pdf.setTextColor(...muted);
+    pdf.setFontSize(9);
+    pdf.text(label.toUpperCase(), infoX + 6, y);
     pdf.setFont("helvetica", "normal");
-    pdf.text(value, 70, y);
-    y += 10;
+    pdf.setTextColor(...ink);
+    pdf.setFontSize(11);
+    pdf.text(value || "—", infoX + labelW, y);
+    if (row < 3) {
+      pdf.setDrawColor(235, 236, 238);
+      pdf.setLineWidth(0.25);
+      pdf.line(infoX + 5, y + 4, infoX + contentW - 5, y + 4);
+    }
   };
 
-  line("Nom", nom);
-  line("Prénom", prenom);
-  line("Fonction", fonction);
-  y += 5;
+  infoLine("Nom", nom, 0);
+  infoLine("Prénom", prenom, 1);
+  infoLine("Fonction", fonction, 2);
+  infoLine("Matricule", String((worker as any)?.matricule || "—"), 3);
 
   pdf.setFont("helvetica", "bold");
-  pdf.text("Est autorisé à prendre un congé :", 20, y);
-  pdf.setFont("helvetica", "normal");
-  const daysText = `${daysWords} JOURS ( ${days} JOURS )`;
-  pdf.text(daysText, 20, y + 8);
-  y += 20;
-
-  line("Nature", nature);
-  line("Période du", `${fmtDateFR(conge.start_date)} jusqu'au ${fmtDateFR(conge.end_date)}`);
-
-  y += 10;
-  pdf.setFont("helvetica", "bold");
-  pdf.text(`FAIT A OULED MOUSSA, LE ${todayStr}`, 20, y);
-  y += 20;
-
-  pdf.setFont("helvetica", "italic");
-  pdf.text("L'intéressé", 30, y);
-  pdf.text("SERVICE PERSONNELES", pageW - 70, y);
-  y += 25;
-
-  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...ink);
   pdf.setFontSize(11);
-  pdf.text("Copies à :", 20, y);
-  y += 8;
+  pdf.text("EST AUTORISE(E) A PRENDRE UN CONGE", margin, 166);
+
+  pdf.setFillColor(...red);
+  pdf.roundedRect(margin, 173, contentW, 21, 2, 2, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(14);
+  pdf.text(`${daysWords} JOURS`, pageW / 2, 182, { align: "center" });
   pdf.setFont("helvetica", "normal");
-  pdf.text("- Intéressé(e). GERANT DE L'ENTEPRISE", 25, y);
-  y += 7;
-  pdf.text("- Dossier Personnel.", 25, y);
+  pdf.setFontSize(9);
+  pdf.text(`SOIT ${days} JOUR${days > 1 ? "S" : ""}`, pageW / 2, 189, { align: "center" });
+
+  const detailY = 204;
+  const detailRowH = 15;
+  pdf.setDrawColor(218, 220, 224);
+  pdf.setFillColor(...pale);
+  pdf.roundedRect(margin, detailY, contentW, detailRowH * 2, 2, 2, "FD");
+  pdf.line(margin, detailY + detailRowH, pageW - margin, detailY + detailRowH);
+
+  const detailLine = (label: string, value: string, y: number) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(...muted);
+    pdf.setFontSize(9);
+    pdf.text(label, margin + 6, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(...ink);
+    pdf.setFontSize(10.5);
+    pdf.text(value, margin + 42, y);
+  };
+
+  detailLine("NATURE", nature, detailY + 10);
+  detailLine("PERIODE", `DU ${fmtDateFR(conge.start_date)} AU ${fmtDateFR(conge.end_date)}`, detailY + detailRowH + 10);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...ink);
+  pdf.setFontSize(10);
+  pdf.text(`FAIT A OULED MOUSSA, LE ${todayStr}`, pageW - margin, 247, { align: "right" });
+
+  pdf.setFontSize(10);
+  pdf.text("L'INTERESSE(E)", margin + 29, 263, { align: "center" });
+  pdf.text("SERVICE DU PERSONNEL", pageW - margin - 34, 263, { align: "center" });
+  pdf.setDrawColor(...ink);
+  pdf.setLineWidth(0.35);
+  pdf.line(margin + 5, 280, margin + 53, 280);
+  pdf.line(pageW - margin - 58, 280, pageW - margin - 10, 280);
+
+  pdf.setDrawColor(224, 225, 228);
+  pdf.line(margin, pageH - 12, pageW - margin, pageH - 12);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(...muted);
+  pdf.setFontSize(7.5);
+  pdf.text("COPIES : INTERESSE(E) · GERANT DE L'ENTREPRISE · DOSSIER PERSONNEL", pageW / 2, pageH - 7, { align: "center" });
 
   const safeName = fullName.replace(/[^\w\s-]/g, "").replace(/\s+/g, "_") || "conge";
   pdf.save(`TITRE_DE_CONGE_${safeName}.pdf`);
