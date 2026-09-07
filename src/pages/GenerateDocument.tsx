@@ -409,11 +409,23 @@ export default function GenerateDocument() {
             </Button>
           )}
         </div>
-        {isContract && (
-          <p className="text-xs text-muted-foreground mt-2">
-            L'employé n'existe pas dans la liste ? Cliquez sur « Nouvel employé » pour l'ajouter.
-          </p>
+        {isContract && !workerId && (
+          <div className="mt-4 max-w-md">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              Nom de l'employé *
+            </Label>
+            <Input
+              value={inlineWorkerName}
+              onChange={(e) => setInlineWorkerName(e.target.value)}
+              placeholder="Saisir le nom complet du nouvel employé"
+              className="h-11"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Aucun employé sélectionné : cet employé sera créé automatiquement à l'enregistrement du contrat.
+            </p>
+          </div>
         )}
+
       </div>
 
       <Dialog open={newWorkerOpen} onOpenChange={setNewWorkerOpen}>
