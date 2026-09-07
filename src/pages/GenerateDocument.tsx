@@ -489,7 +489,7 @@ export default function GenerateDocument() {
             <ContractForm formData={formData} setFormData={setFormData} worker={selectedWorker} />
 
             <div className="flex flex-wrap gap-3 pt-2 border-t border-border">
-              <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1 min-w-[160px]">
+              <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
                 <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
               </Button>
               <Button onClick={() => window.print()} variant="outline" disabled={!workerId}>
