@@ -322,20 +322,46 @@ export default function GenerateDocument() {
 
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const avenantPayload = (isContract && showAvenant ? { ...avenant } : null) as any;
+
+      let targetWorker = selectedWorker;
+      let targetWorkerId = workerId;
+
+      // Create the worker on the fly when a manual name was typed
+      if (!targetWorkerId && isContract && inlineWorkerName.trim()) {
+        const nums = (workers ?? [])
+          .map((w) => parseInt(String((w as any).matricule ?? "").replace(/\D/g, ""), 10))
+          .filter((n) => !isNaN(n));
+        const nextMatricule = String((nums.length ? Math.max(...nums) : 0) + 1);
+        const created = await createWorker({
+          full_name: inlineWorkerName.trim(),
+          position: formData.poste || null,
+          matricule: nextMatricule,
+          hire_date: formData.date_debut || null,
+          date_debut_contrat: formData.date_debut || null,
+          date_fin_contrat: formData.date_fin || null,
+          duree_contrat: formData.duree_mois || null,
+        } as any);
+        queryClient.invalidateQueries({ queryKey: ["workers"] });
+        targetWorker = created as any;
+        targetWorkerId = created.id;
+        setWorkerId(created.id);
+      }
+
       return isEdit
         ? updateDocument(editId!, {
-            title: `${DOCUMENT_TYPES[docType].label} - ${selectedWorker?.full_name}`,
-            content: { ...formData, worker: selectedWorker, avenant: avenantPayload },
+            title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
+            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
           })
         : createDocument({
-            worker_id: workerId,
+            worker_id: targetWorkerId,
             document_type: docType,
-            title: `${DOCUMENT_TYPES[docType].label} - ${selectedWorker?.full_name}`,
-            content: { ...formData, worker: selectedWorker, avenant: avenantPayload },
+            title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
+            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
           });
     },
+
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["document", editId] });
@@ -383,11 +409,23 @@ export default function GenerateDocument() {
             </Button>
           )}
         </div>
-        {isContract && (
-          <p className="text-xs text-muted-foreground mt-2">
-            L'employé n'existe pas dans la liste ? Cliquez sur « Nouvel employé » pour l'ajouter.
-          </p>
+        {isContract && !workerId && (
+          <div className="mt-4 max-w-md">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              Nom de l'employé *
+            </Label>
+            <Input
+              value={inlineWorkerName}
+              onChange={(e) => setInlineWorkerName(e.target.value)}
+              placeholder="Saisir le nom complet du nouvel employé"
+              className="h-11"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Aucun employé sélectionné : cet employé sera créé automatiquement à l'enregistrement du contrat.
+            </p>
+          </div>
         )}
+
       </div>
 
       <Dialog open={newWorkerOpen} onOpenChange={setNewWorkerOpen}>
@@ -451,7 +489,7 @@ export default function GenerateDocument() {
             <ContractForm formData={formData} setFormData={setFormData} worker={selectedWorker} />
 
             <div className="flex flex-wrap gap-3 pt-2 border-t border-border">
-              <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1 min-w-[160px]">
+              <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
                 <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
               </Button>
               <Button onClick={() => window.print()} variant="outline" disabled={!workerId}>
