@@ -268,7 +268,7 @@ export async function getConges(
   workerId?: string,
   opts?: { from?: string; to?: string; type?: CongeType | "all" },
 ) {
-  let q = (supabase as any).from("conges").select("*, workers(full_name, matricule, department)").order("start_date", { ascending: false });
+  let q = (supabase as any).from("conges").select("*, workers(full_name, matricule, department, position)").order("start_date", { ascending: false });
   if (workerId && workerId !== "all") q = q.eq("worker_id", workerId);
   if (opts?.type && opts.type !== "all") q = q.eq("conge_type", opts.type);
   // period overlap: end_date >= from AND start_date < to
