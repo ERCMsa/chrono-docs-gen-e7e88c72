@@ -457,18 +457,7 @@ export default function GenerateDocument() {
       )}
 
       {/* Employee selector - always on top */}
-      <div className="bg-card border rounded-xl p-6">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé *</Label>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex-1 min-w-[280px] max-w-md">
-            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} />
-          </div>
-          {isContract && (
-            <Button type="button" variant="outline" onClick={() => setNewWorkerOpen(true)} className="h-11">
-              <UserPlus className="w-4 h-4 mr-2" />Nouvel employé
-            </Button>
-          )}
-        </div>
+      <div className="bg-card border rounded-xl p-6">        
         {isContract && !workerId && (
           <div className="mt-4 max-w-md">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
@@ -552,13 +541,13 @@ export default function GenerateDocument() {
               <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
                 <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
               </Button>
-              <Button onClick={() => window.print()} variant="outline" disabled={!workerId}>
+              <Button onClick={() => window.print()} variant="outline">
                 <Printer className="w-4 h-4 mr-2" />Imprimer
               </Button>
-              <Button onClick={handleDownloadPdf} variant="outline" disabled={!workerId}>
+              <Button onClick={handleDownloadPdf} variant="outline" >
                 <Download className="w-4 h-4 mr-2" />PDF
               </Button>
-              <Button onClick={openAvenant} variant="secondary" disabled={!workerId}>
+              <Button onClick={openAvenant} variant="secondary" >
                 <Plus className="w-4 h-4 mr-2" />Avenant
               </Button>
             </div>
