@@ -40,9 +40,13 @@ const getDefaultValues = (docType: DocType): Record<string, string> => {
         date_sign: todayStr(),
         lieu_sign: "أولاد موسى",
         periode_essai: "true",
+        deja_travaille: "false",
+        sexe: "Masculin",
       };
     case "bon_sortie":
       return { sortie_date: todayStr(), sortie_time: nowTime() };
+    case "bon_entree":
+      return { entree_date: todayStr(), entree_time: nowTime() };
     case "avertissement":
       return { avert_date: todayStr(), infraction_date: todayStr() };
     default:
@@ -56,6 +60,11 @@ const formFieldsByType: Record<DocType, { key: string; label: string; type?: str
     { key: "sortie_date", label: "Date de sortie", type: "date" },
     { key: "sortie_time", label: "Heure de sortie", type: "time" },
     { key: "reason", label: "Motif de sortie", placeholder: "Ex: Rendez-vous médical" },
+  ],
+  bon_entree: [
+    { key: "entree_date", label: "Date d'entrée", type: "date" },
+    { key: "entree_time", label: "Heure d'entrée", type: "time" },
+    { key: "reason", label: "Motif d'entrée", placeholder: "Ex: Retour de mission" },
   ],
   avertissement: [
     { key: "avert_date", label: "Date de l'avertissement", type: "date" },
@@ -192,10 +201,10 @@ function ContractForm({ formData, setFormData, worker }: {
       </label>
 
       <SectionHeader>2. معلومات العامل (Informations Salarié)</SectionHeader>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {inp("date_nais", "تاريخ الميلاد (Date Naissance)", { type: "date" })}
         <WilayaSelect label="ولاية الميلاد (Wilaya Naissance)" value={formData.wilaya_nais ?? ""} onChange={set("wilaya_nais")} />
-        <CommuneSelect label="مكان الميلاد (Lieu Naissance)" wilayaAr={formData.wilaya_nais ?? ""} value={formData.lieu_nais ?? ""} onChange={set("lieu_nais")} />
+        {inp("lieu_nais", "مكان الميلاد (Lieu Naissance)", { placeholder: "Lieu de naissance" })}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -214,6 +223,17 @@ function ContractForm({ formData, setFormData, worker }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {inp("tel", "الهاتف (Téléphone)")}
         {inp("email", "الإيميل (Email)")}
+      </div>
+
+      <div className="flex items-center gap-3 rounded-lg border border-input bg-muted/30 p-3">
+        <Switch
+          checked={formData.deja_travaille === "true"}
+          onCheckedChange={(v) => set("deja_travaille")(v ? "true" : "false")}
+        />
+        <div>
+          <Label className="cursor-pointer font-medium">Déjà travaillé</Label>
+          <p className="text-xs text-muted-foreground">L'employé a déjà travaillé dans l'entreprise</p>
+        </div>
       </div>
 
       <SectionHeader>3. الأجر (Salaire)</SectionHeader>
