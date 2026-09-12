@@ -457,7 +457,13 @@ export default function GenerateDocument() {
       )}
 
       {/* Employee selector - always on top */}
-      <div className="bg-card border rounded-xl p-6">        
+      <div className="bg-card border rounded-xl p-6">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé *</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex-1 min-w-[280px] max-w-md">
+            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} />
+          </div>
+        </div>
         {isContract && !workerId && (
           <div className="mt-4 max-w-md">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
