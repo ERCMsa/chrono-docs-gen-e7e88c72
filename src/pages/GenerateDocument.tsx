@@ -2,7 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, createDocument, updateDocument, createWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, createDocument, updateDocument, createWorker, updateWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import { Download, Save, Printer, Plus, UserPlus } from "lucide-react";
@@ -249,11 +251,20 @@ export default function GenerateDocument() {
   const { type, id: editId } = useParams<{ type: string; id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const docType = type as DocType;
+  const routeType = type as DocType;
+  const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree";
   const isEdit = !!editId;
 
+  const [bonType, setBonType] = useState<DocType>(routeType);
+  const docType = isBonSection ? bonType : routeType;
+
   const [workerId, setWorkerId] = useState("");
-  const [formData, setFormData] = useState<Record<string, string>>(() => getDefaultValues(docType));
+  const [formData, setFormData] = useState<Record<string, string>>(() => getDefaultValues(routeType));
+
+  const switchBonType = (next: DocType) => {
+    setBonType(next);
+    setFormData(getDefaultValues(next));
+  };
   const [lang, setLang] = useState<"ar" | "fr">("ar");
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(defaultLogo);
   const [showAvenant, setShowAvenant] = useState(false);
@@ -369,16 +380,36 @@ export default function GenerateDocument() {
         setWorkerId(created.id);
       }
 
+      // Contract → employee sync (one-way, done here so no DB trigger loop is possible)
+      if (isContract && targetWorkerId) {
+        const workerUpdate: Record<string, any> = {
+          phone: formData.tel || null,
+          address: formData.adresse || null,
+          position: formData.poste || null,
+          date_naissance: formData.date_nais || null,
+          lieu_naissance: formData.lieu_nais || null,
+          sexe: "Masculin",
+        };
+        const synced = await updateWorker(targetWorkerId, workerUpdate as any);
+        targetWorker = synced as any;
+        queryClient.invalidateQueries({ queryKey: ["workers"] });
+        queryClient.invalidateQueries({ queryKey: ["worker", targetWorkerId] });
+      }
+
+      const contentPayload = isContract
+        ? { ...formData, sexe: "Masculin", worker: targetWorker, avenant: avenantPayload }
+        : { ...formData, worker: targetWorker, avenant: avenantPayload };
+
       return isEdit
         ? updateDocument(editId!, {
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
-            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
+            content: contentPayload,
           })
         : createDocument({
             worker_id: targetWorkerId,
             document_type: docType,
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
-            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
+            content: contentPayload,
           });
     },
 
@@ -415,6 +446,15 @@ export default function GenerateDocument() {
           </div>
         )}
       </div>
+
+      {isBonSection && !isEdit && (
+        <Tabs value={docType} onValueChange={(v) => switchBonType(v as DocType)} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="bon_sortie">Bon de sortie</TabsTrigger>
+            <TabsTrigger value="bon_entree">Bon d'entrée</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {/* Employee selector - always on top */}
       <div className="bg-card border rounded-xl p-6">
