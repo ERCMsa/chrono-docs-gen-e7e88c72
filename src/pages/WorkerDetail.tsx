@@ -158,7 +158,7 @@ export default function WorkerDetail() {
   if (loadingWorker) return <p className="text-muted-foreground">Chargement...</p>;
   if (!worker) return <p className="text-destructive">Employé introuvable</p>;
 
-  const isBon = (type: string) => type === "bon_sortie";
+  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
   const contractStatus = getContractStatus((worker as any).date_fin_contrat);
   const hasContractDoc = (documents ?? []).some((d: any) => d.document_type === "contract");
 

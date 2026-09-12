@@ -31,7 +31,7 @@ export default function Workers() {
   const [form, setForm] = useState<Record<string, any>>({ ...emptyWorker });
   const [isDeptHead, setIsDeptHead] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
   const [importOpen, setImportOpen] = useState(false);
   const { data: workers, isLoading } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: contractWorkerIds } = useQuery({ queryKey: ["workers-with-contract"], queryFn: getWorkerIdsWithContract });

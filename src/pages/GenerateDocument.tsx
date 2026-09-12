@@ -2,7 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, createDocument, updateDocument, createWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, createDocument, updateDocument, createWorker, updateWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import { Download, Save, Printer, Plus, UserPlus } from "lucide-react";
@@ -40,9 +42,13 @@ const getDefaultValues = (docType: DocType): Record<string, string> => {
         date_sign: todayStr(),
         lieu_sign: "أولاد موسى",
         periode_essai: "true",
+        deja_travaille: "false",
+        sexe: "Masculin",
       };
     case "bon_sortie":
       return { sortie_date: todayStr(), sortie_time: nowTime() };
+    case "bon_entree":
+      return { entree_date: todayStr(), entree_time: nowTime() };
     case "avertissement":
       return { avert_date: todayStr(), infraction_date: todayStr() };
     default:
@@ -56,6 +62,11 @@ const formFieldsByType: Record<DocType, { key: string; label: string; type?: str
     { key: "sortie_date", label: "Date de sortie", type: "date" },
     { key: "sortie_time", label: "Heure de sortie", type: "time" },
     { key: "reason", label: "Motif de sortie", placeholder: "Ex: Rendez-vous médical" },
+  ],
+  bon_entree: [
+    { key: "entree_date", label: "Date d'entrée", type: "date" },
+    { key: "entree_time", label: "Heure d'entrée", type: "time" },
+    { key: "reason", label: "Motif d'entrée", placeholder: "Ex: Retour de mission" },
   ],
   avertissement: [
     { key: "avert_date", label: "Date de l'avertissement", type: "date" },
@@ -192,10 +203,10 @@ function ContractForm({ formData, setFormData, worker }: {
       </label>
 
       <SectionHeader>2. معلومات العامل (Informations Salarié)</SectionHeader>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {inp("date_nais", "تاريخ الميلاد (Date Naissance)", { type: "date" })}
         <WilayaSelect label="ولاية الميلاد (Wilaya Naissance)" value={formData.wilaya_nais ?? ""} onChange={set("wilaya_nais")} />
-        <CommuneSelect label="مكان الميلاد (Lieu Naissance)" wilayaAr={formData.wilaya_nais ?? ""} value={formData.lieu_nais ?? ""} onChange={set("lieu_nais")} />
+        {inp("lieu_nais", "مكان الميلاد (Lieu Naissance)", { placeholder: "Lieu de naissance" })}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -216,6 +227,17 @@ function ContractForm({ formData, setFormData, worker }: {
         {inp("email", "الإيميل (Email)")}
       </div>
 
+      <div className="flex items-center gap-3 rounded-lg border border-input bg-muted/30 p-3">
+        <Switch
+          checked={formData.deja_travaille === "true"}
+          onCheckedChange={(v) => set("deja_travaille")(v ? "true" : "false")}
+        />
+        <div>
+          <Label className="cursor-pointer font-medium">Déjà travaillé</Label>
+          <p className="text-xs text-muted-foreground">L'employé a déjà travaillé dans l'entreprise</p>
+        </div>
+      </div>
+
       <SectionHeader>3. الأجر (Salaire)</SectionHeader>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {inp("sal_base", "الأجر القاعدي (Salaire de base - DA)")}
@@ -229,11 +251,20 @@ export default function GenerateDocument() {
   const { type, id: editId } = useParams<{ type: string; id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const docType = type as DocType;
+  const routeType = type as DocType;
+  const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree";
   const isEdit = !!editId;
 
+  const [bonType, setBonType] = useState<DocType>(routeType);
+  const docType = isBonSection ? bonType : routeType;
+
   const [workerId, setWorkerId] = useState("");
-  const [formData, setFormData] = useState<Record<string, string>>(() => getDefaultValues(docType));
+  const [formData, setFormData] = useState<Record<string, string>>(() => getDefaultValues(routeType));
+
+  const switchBonType = (next: DocType) => {
+    setBonType(next);
+    setFormData(getDefaultValues(next));
+  };
   const [lang, setLang] = useState<"ar" | "fr">("ar");
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(defaultLogo);
   const [showAvenant, setShowAvenant] = useState(false);
@@ -349,16 +380,36 @@ export default function GenerateDocument() {
         setWorkerId(created.id);
       }
 
+      // Contract → employee sync (one-way, done here so no DB trigger loop is possible)
+      if (isContract && targetWorkerId) {
+        const workerUpdate: Record<string, any> = {
+          phone: formData.tel || null,
+          address: formData.adresse || null,
+          position: formData.poste || null,
+          date_naissance: formData.date_nais || null,
+          lieu_naissance: formData.lieu_nais || null,
+          sexe: "Masculin",
+        };
+        const synced = await updateWorker(targetWorkerId, workerUpdate as any);
+        targetWorker = synced as any;
+        queryClient.invalidateQueries({ queryKey: ["workers"] });
+        queryClient.invalidateQueries({ queryKey: ["worker", targetWorkerId] });
+      }
+
+      const contentPayload = isContract
+        ? { ...formData, sexe: "Masculin", worker: targetWorker, avenant: avenantPayload }
+        : { ...formData, worker: targetWorker, avenant: avenantPayload };
+
       return isEdit
         ? updateDocument(editId!, {
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
-            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
+            content: contentPayload,
           })
         : createDocument({
             worker_id: targetWorkerId,
             document_type: docType,
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
-            content: { ...formData, worker: targetWorker, avenant: avenantPayload },
+            content: contentPayload,
           });
     },
 
@@ -395,6 +446,15 @@ export default function GenerateDocument() {
           </div>
         )}
       </div>
+
+      {isBonSection && !isEdit && (
+        <Tabs value={docType} onValueChange={(v) => switchBonType(v as DocType)} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="bon_sortie">Bon de sortie</TabsTrigger>
+            <TabsTrigger value="bon_entree">Bon d'entrée</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {/* Employee selector - always on top */}
       <div className="bg-card border rounded-xl p-6">

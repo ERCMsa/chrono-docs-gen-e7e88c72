@@ -3,7 +3,7 @@ import logoErcm from "@/assets/logo-ercm.png";
 import ContractPreview from "./ContractPreview"
 
 interface Props {
-  type: "contract" | "bon_sortie" | "avertissement";
+  type: "contract" | "bon_sortie" | "bon_entree" | "avertissement";
   worker: Worker;
   data: Record<string, string>;
   validationStatus?: {
@@ -131,7 +131,7 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     borderRadius: 8,
   };
 
-  const isBon = type === "bon_sortie";
+  const isBon = type === "bon_sortie" || type === "bon_entree";
 
   const sortieItems = [
     { label: "Matricule", value: (worker as any).matricule },
@@ -146,11 +146,30 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     sortieItems.push({ label: "Heure de rentrée", value: data.rentree_time });
   }
 
+  const entreeItems = [
+    { label: "Matricule", value: (worker as any).matricule },
+    { label: "Date d'entrée", value: data.entree_date },
+    { label: "Nom Complet", value: worker.full_name },
+    { label: "Heure d'entrée", value: data.entree_time },
+    { label: "Poste", value: worker.position },
+    { label: "Motif", value: data.reason },
+    { label: "Département", value: worker.department },
+  ];
+
   const templates: Record<string, React.ReactNode> = {
     bon_sortie: (
       <div style={pageStyle}>
         <DocHeader title="BON D AUTORISATION" subtitle="Sortie" />
         <InfoGrid items={sortieItems} />
+        <VisaSection validationStatus={validationStatus} />
+        <DocFooter />
+      </div>
+    ),
+
+    bon_entree: (
+      <div style={pageStyle}>
+        <DocHeader title="BON D AUTORISATION" subtitle="Entrée" />
+        <InfoGrid items={entreeItems} />
         <VisaSection validationStatus={validationStatus} />
         <DocFooter />
       </div>

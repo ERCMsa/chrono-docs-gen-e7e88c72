@@ -28,7 +28,7 @@ export default function Documents() {
 
   const filtered = documents?.filter((doc) => typeFilter === "all" || doc.document_type === typeFilter);
 
-  const isBon = (type: string) => type === "bon_sortie";
+  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
 
   return (
     <div className="space-y-6">

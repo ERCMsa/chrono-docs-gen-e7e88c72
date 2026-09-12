@@ -66,7 +66,7 @@ export default function DocumentView() {
     if (typeof v === "string") formData[k] = v;
   }
 
-  const isBon = docType === "bon_sortie";
+  const isBon = docType === "bon_sortie" || docType === "bon_entree";
   const isContract = docType === "contract";
   const isValidatedResp = doc.validated_by_responsible;
   const isValidatedRh = doc.validated_by_rh;
