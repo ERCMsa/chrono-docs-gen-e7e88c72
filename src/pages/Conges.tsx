@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText } from "lucide-react";
+import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText, ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
 import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
@@ -34,6 +34,40 @@ const TYPE_COLORS: Record<CongeType, string> = {
   paternity: "bg-indigo-50 text-indigo-700",
   exceptional: "bg-amber-50 text-amber-700",
 };
+
+type SortState = { field: string; dir: "asc" | "desc" };
+
+function SortHeader({
+  label, field, sort, setSort, align = "left",
+}: { label: string; field: string; sort: SortState; setSort: (s: SortState) => void; align?: "left" | "right" }) {
+  const active = sort.field === field;
+  return (
+    <th className={`p-4 font-medium ${align === "right" ? "text-right" : "text-left"}`}>
+      <button
+        type="button"
+        onClick={() => setSort({ field, dir: active && sort.dir === "asc" ? "desc" : "asc" })}
+        className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${active ? "text-foreground" : ""}`}
+      >
+        {label}
+        {active ? (
+          sort.dir === "asc" ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
+        ) : (
+          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+function compareValues(a: any, b: any, dir: "asc" | "desc") {
+  const mul = dir === "asc" ? 1 : -1;
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (typeof a === "number" && typeof b === "number") return (a - b) * mul;
+  return String(a).localeCompare(String(b), "fr", { numeric: true }) * mul;
+}
+
 
 export default function Conges() {
   const qc = useQueryClient();
