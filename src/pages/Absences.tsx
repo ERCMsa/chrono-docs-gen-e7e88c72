@@ -100,10 +100,11 @@ export default function Absences() {
     if (!absences) return [];
     return absences.filter((a) => {
       if (filterWorker !== "all" && a.worker_id !== filterWorker) return false;
-      if (filterMonth && a.absence_date.slice(0, 7) !== filterMonth) return false;
+      if (a.absence_date.slice(0, 4) !== filterYear) return false;
       return true;
     });
-  }, [absences, filterWorker, filterMonth]);
+  }, [absences, filterWorker, filterYear]);
+
 
   return (
     <div className="space-y-6">
@@ -190,9 +191,25 @@ export default function Absences() {
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
-          <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="h-9 w-[170px]" />
+          <Label className="text-xs text-muted-foreground mb-1 block">Année</Label>
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les mois</SelectItem>
+              {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Total : <span className="font-semibold text-foreground">{filtered.length}</span>
         </div>
