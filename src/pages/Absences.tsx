@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
 export default function Absences() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -29,10 +31,23 @@ export default function Absences() {
   const [date, setDate] = useState(todayStr());
   const [reason, setReason] = useState("");
   const [filterWorker, setFilterWorker] = useState("all");
-  const [filterMonth, setFilterMonth] = useState(todayStr().slice(0, 7));
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
+
+  const years = useMemo(() => {
+    const cy = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, i) => cy + 1 - i);
+  }, []);
+
+  const monthKey = filterMonth === "all" ? undefined : `${filterYear}-${String(Number(filterMonth)).padStart(2, "0")}`;
 
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
-  const { data: absences, isLoading } = useQuery({ queryKey: ["absences", filterMonth], queryFn: () => getAbsences(undefined, filterMonth) });
+  const { data: absences, isLoading } = useQuery({
+    queryKey: ["absences", filterYear, filterMonth],
+    queryFn: () => getAbsences(undefined, monthKey),
+  });
+
 
   const reset = () => {
     setEditing(null); setWorkerId(""); setWorkerIds([]); setMultiMode(false); setDate(todayStr()); setReason("");
