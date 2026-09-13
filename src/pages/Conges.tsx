@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText } from "lucide-react";
+import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText, ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
 import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
@@ -34,6 +34,40 @@ const TYPE_COLORS: Record<CongeType, string> = {
   paternity: "bg-indigo-50 text-indigo-700",
   exceptional: "bg-amber-50 text-amber-700",
 };
+
+type SortState = { field: string; dir: "asc" | "desc" };
+
+function SortHeader({
+  label, field, sort, setSort, align = "left",
+}: { label: string; field: string; sort: SortState; setSort: (s: SortState) => void; align?: "left" | "right" }) {
+  const active = sort.field === field;
+  return (
+    <th className={`p-4 font-medium ${align === "right" ? "text-right" : "text-left"}`}>
+      <button
+        type="button"
+        onClick={() => setSort({ field, dir: active && sort.dir === "asc" ? "desc" : "asc" })}
+        className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${active ? "text-foreground" : ""}`}
+      >
+        {label}
+        {active ? (
+          sort.dir === "asc" ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
+        ) : (
+          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+function compareValues(a: any, b: any, dir: "asc" | "desc") {
+  const mul = dir === "asc" ? 1 : -1;
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (typeof a === "number" && typeof b === "number") return (a - b) * mul;
+  return String(a).localeCompare(String(b), "fr", { numeric: true }) * mul;
+}
+
 
 export default function Conges() {
   const qc = useQueryClient();
@@ -130,12 +164,33 @@ export default function Conges() {
     return Array.from({ length: 7 }, (_, i) => cy + 1 - i);
   }, []);
 
-  const filtered = conges ?? [];
+  const [sort, setSort] = useState<SortState>({ field: "start_date", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const list = [...(conges ?? [])];
+    return list.sort((a, b) => {
+      const pick = (c: any) => {
+        switch (sort.field) {
+          case "worker": return c.workers?.full_name ?? "";
+          case "type": return CONGE_TYPES[c.conge_type as CongeType];
+          case "start_date": return c.start_date;
+          case "end_date": return c.end_date;
+          case "duration": return congeDuration(c.start_date, c.end_date);
+          case "reason": return c.reason ?? "";
+          default: return "";
+        }
+      };
+      return compareValues(pick(a), pick(b), sort.dir);
+    });
+  }, [conges, sort]);
 
   // ===== Droit de Congé =====
   const DROIT_FROM = "2026-01-01";
   const DROIT_TO = "2027-01-01";
   const REF_DATE = new Date(2026, 5, 30); // 2026-06-30
+
+  const [droitSearch, setDroitSearch] = useState("");
+  const [droitSort, setDroitSort] = useState<SortState>({ field: "name", dir: "asc" });
 
   const { data: droitConges } = useQuery({
     queryKey: ["conges", "droit", DROIT_FROM, DROIT_TO],
@@ -143,6 +198,7 @@ export default function Conges() {
   });
 
   const droitRows = useMemo(() => {
+    const q = droitSearch.trim().toLowerCase();
     const list = (workers ?? []).map((w: any) => {
       const enterDate = w.hire_date ?? w.date_debut_contrat ?? null;
       const dayWorked = enterDate
@@ -164,9 +220,10 @@ export default function Conges() {
         resteConge: congeDroit - congeFait,
         enterDate,
       };
-    });
-    return list.sort((a, b) => a.name.localeCompare(b.name, "fr"));
-  }, [workers, droitConges]);
+    }).filter((r) => !q || `${r.name} ${r.matricule}`.toLowerCase().includes(q));
+    return list.sort((a, b) => compareValues((a as any)[droitSort.field], (b as any)[droitSort.field], droitSort.dir));
+  }, [workers, droitConges, droitSearch, droitSort]);
+
 
 
 
@@ -307,12 +364,13 @@ export default function Conges() {
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-              <th className="p-4 font-medium">Employé</th>
-              <th className="p-4 font-medium">Type</th>
-              <th className="p-4 font-medium">Du</th>
-              <th className="p-4 font-medium">Au</th>
-              <th className="p-4 font-medium text-right">Durée</th>
-              <th className="p-4 font-medium">Motif</th>
+              <SortHeader label="Employé" field="worker" sort={sort} setSort={setSort} />
+              <SortHeader label="Type" field="type" sort={sort} setSort={setSort} />
+              <SortHeader label="Du" field="start_date" sort={sort} setSort={setSort} />
+              <SortHeader label="Au" field="end_date" sort={sort} setSort={setSort} />
+              <SortHeader label="Durée" field="duration" sort={sort} setSort={setSort} align="right" />
+              <SortHeader label="Motif" field="reason" sort={sort} setSort={setSort} />
+
               <th className="p-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -356,19 +414,38 @@ export default function Conges() {
       </TabsContent>
 
       <TabsContent value="droit" className="space-y-6">
+        <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
+          <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
+          <div className="w-[260px]">
+            <Label className="text-xs text-muted-foreground mb-1 block">Employé</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={droitSearch}
+                onChange={(e) => setDroitSearch(e.target.value)}
+                placeholder="Rechercher par nom, matricule..."
+                className="h-9 pl-9"
+              />
+            </div>
+          </div>
+          <div className="ml-auto text-sm text-muted-foreground">
+            Total : <span className="font-semibold text-foreground">{droitRows.length}</span>
+          </div>
+        </div>
         <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-                <th className="p-4 font-medium">MATRICULE</th>
-                <th className="p-4 font-medium">Employée</th>
-                <th className="p-4 font-medium text-right">Month Worked</th>
-                <th className="p-4 font-medium text-right">Congé Fait</th>
-                <th className="p-4 font-medium text-right">Droit Congé</th>
-                <th className="p-4 font-medium text-right">Reste Congé</th>
-                <th className="p-4 font-medium">Date Entrée</th>
+                <SortHeader label="MATRICULE" field="matricule" sort={droitSort} setSort={setDroitSort} />
+                <SortHeader label="Employée" field="name" sort={droitSort} setSort={setDroitSort} />
+                <SortHeader label="Month Worked" field="monthWorked" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Congé Fait" field="congeFait" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Droit Congé" field="congeDroit" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Reste Congé" field="resteConge" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Date Entrée" field="enterDate" sort={droitSort} setSort={setDroitSort} />
               </tr>
             </thead>
+
             <tbody>
               {droitRows.length === 0 ? (
                 <tr><td colSpan={7} className="p-10 text-center">
