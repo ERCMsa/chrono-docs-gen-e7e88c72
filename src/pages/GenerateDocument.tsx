@@ -43,7 +43,7 @@ const getDefaultValues = (docType: DocType): Record<string, string> => {
         lieu_sign: "أولاد موسى",
         periode_essai: "true",
         sexe: "Masculin",
-        sexe: "Masculin",
+
       };
     case "bon_sortie":
       return { sortie_date: todayStr(), sortie_time: nowTime() };
@@ -257,6 +257,20 @@ export default function GenerateDocument() {
     setBonType(next);
     setFormData(getDefaultValues(next));
   };
+
+  // Reset local state when navigating between document types (avoids showing
+  // the previous document's fields, e.g. contract data inside "Bon de sortie").
+  useEffect(() => {
+    setBonType(routeType);
+    if (!isEdit) {
+      setFormData(getDefaultValues(routeType));
+      setWorkerId("");
+      setInlineWorkerName("");
+      setShowAvenant(false);
+      setAvenant({ ...EMPTY_AVENANT });
+    }
+  }, [routeType, isEdit]);
+
   const [lang, setLang] = useState<"ar" | "fr">("ar");
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(defaultLogo);
   const [showAvenant, setShowAvenant] = useState(false);
