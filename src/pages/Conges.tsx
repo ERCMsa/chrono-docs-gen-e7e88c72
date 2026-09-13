@@ -414,19 +414,38 @@ export default function Conges() {
       </TabsContent>
 
       <TabsContent value="droit" className="space-y-6">
+        <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
+          <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
+          <div className="w-[260px]">
+            <Label className="text-xs text-muted-foreground mb-1 block">Employé</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={droitSearch}
+                onChange={(e) => setDroitSearch(e.target.value)}
+                placeholder="Rechercher par nom, matricule..."
+                className="h-9 pl-9"
+              />
+            </div>
+          </div>
+          <div className="ml-auto text-sm text-muted-foreground">
+            Total : <span className="font-semibold text-foreground">{droitRows.length}</span>
+          </div>
+        </div>
         <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-                <th className="p-4 font-medium">MATRICULE</th>
-                <th className="p-4 font-medium">Employée</th>
-                <th className="p-4 font-medium text-right">Month Worked</th>
-                <th className="p-4 font-medium text-right">Congé Fait</th>
-                <th className="p-4 font-medium text-right">Droit Congé</th>
-                <th className="p-4 font-medium text-right">Reste Congé</th>
-                <th className="p-4 font-medium">Date Entrée</th>
+                <SortHeader label="MATRICULE" field="matricule" sort={droitSort} setSort={setDroitSort} />
+                <SortHeader label="Employée" field="name" sort={droitSort} setSort={setDroitSort} />
+                <SortHeader label="Month Worked" field="monthWorked" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Congé Fait" field="congeFait" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Droit Congé" field="congeDroit" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Reste Congé" field="resteConge" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Date Entrée" field="enterDate" sort={droitSort} setSort={setDroitSort} />
               </tr>
             </thead>
+
             <tbody>
               {droitRows.length === 0 ? (
                 <tr><td colSpan={7} className="p-10 text-center">
