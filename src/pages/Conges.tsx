@@ -164,12 +164,33 @@ export default function Conges() {
     return Array.from({ length: 7 }, (_, i) => cy + 1 - i);
   }, []);
 
-  const filtered = conges ?? [];
+  const [sort, setSort] = useState<SortState>({ field: "start_date", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const list = [...(conges ?? [])];
+    return list.sort((a, b) => {
+      const pick = (c: any) => {
+        switch (sort.field) {
+          case "worker": return c.workers?.full_name ?? "";
+          case "type": return CONGE_TYPES[c.conge_type as CongeType];
+          case "start_date": return c.start_date;
+          case "end_date": return c.end_date;
+          case "duration": return congeDuration(c.start_date, c.end_date);
+          case "reason": return c.reason ?? "";
+          default: return "";
+        }
+      };
+      return compareValues(pick(a), pick(b), sort.dir);
+    });
+  }, [conges, sort]);
 
   // ===== Droit de Congé =====
   const DROIT_FROM = "2026-01-01";
   const DROIT_TO = "2027-01-01";
   const REF_DATE = new Date(2026, 5, 30); // 2026-06-30
+
+  const [droitSearch, setDroitSearch] = useState("");
+  const [droitSort, setDroitSort] = useState<SortState>({ field: "name", dir: "asc" });
 
   const { data: droitConges } = useQuery({
     queryKey: ["conges", "droit", DROIT_FROM, DROIT_TO],
@@ -177,6 +198,7 @@ export default function Conges() {
   });
 
   const droitRows = useMemo(() => {
+    const q = droitSearch.trim().toLowerCase();
     const list = (workers ?? []).map((w: any) => {
       const enterDate = w.hire_date ?? w.date_debut_contrat ?? null;
       const dayWorked = enterDate
@@ -198,9 +220,10 @@ export default function Conges() {
         resteConge: congeDroit - congeFait,
         enterDate,
       };
-    });
-    return list.sort((a, b) => a.name.localeCompare(b.name, "fr"));
-  }, [workers, droitConges]);
+    }).filter((r) => !q || `${r.name} ${r.matricule}`.toLowerCase().includes(q));
+    return list.sort((a, b) => compareValues((a as any)[droitSort.field], (b as any)[droitSort.field], droitSort.dir));
+  }, [workers, droitConges, droitSearch, droitSort]);
+
 
 
 
