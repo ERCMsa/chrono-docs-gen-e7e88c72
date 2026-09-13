@@ -42,7 +42,7 @@ const getDefaultValues = (docType: DocType): Record<string, string> => {
         date_sign: todayStr(),
         lieu_sign: "أولاد موسى",
         periode_essai: "true",
-        deja_travaille: "false",
+        sexe: "Masculin",
         sexe: "Masculin",
       };
     case "bon_sortie":
@@ -171,8 +171,8 @@ function ContractForm({ formData, setFormData, worker }: {
   return (
     <div className="space-y-4">
       <SectionHeader>1. معلومات العقد (Informations Contrat)</SectionHeader>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {inp("num_contrat", "رقم العقد (N° Contrat)", { placeholder: "ex: 007/2024" })}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
         <div>
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">مدة العقد (Durée)</Label>
           <Select value={formData.duree_mois ?? "12"} onValueChange={set("duree_mois")}>
@@ -206,7 +206,7 @@ function ContractForm({ formData, setFormData, worker }: {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {inp("date_nais", "تاريخ الميلاد (Date Naissance)", { type: "date" })}
         <WilayaSelect label="ولاية الميلاد (Wilaya Naissance)" value={formData.wilaya_nais ?? ""} onChange={set("wilaya_nais")} />
-        {inp("lieu_nais", "مكان الميلاد (Lieu Naissance)", { placeholder: "Lieu de naissance" })}
+        <CommuneSelect label="مكان الميلاد (Lieu Naissance)" wilayaAr={formData.wilaya_nais ?? ""} value={formData.lieu_nais ?? ""} onChange={set("lieu_nais")} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -227,16 +227,8 @@ function ContractForm({ formData, setFormData, worker }: {
         {inp("email", "الإيميل (Email)")}
       </div>
 
-      <div className="flex items-center gap-3 rounded-lg border border-input bg-muted/30 p-3">
-        <Switch
-          checked={formData.deja_travaille === "true"}
-          onCheckedChange={(v) => set("deja_travaille")(v ? "true" : "false")}
-        />
-        <div>
-          <Label className="cursor-pointer font-medium">Déjà travaillé</Label>
-          <p className="text-xs text-muted-foreground">L'employé a déjà travaillé dans l'entreprise</p>
-        </div>
-      </div>
+
+
 
       <SectionHeader>3. الأجر (Salaire)</SectionHeader>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
