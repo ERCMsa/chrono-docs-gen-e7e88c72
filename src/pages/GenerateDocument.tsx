@@ -525,7 +525,7 @@ export default function GenerateDocument() {
       {isContract ? (
         /* Contract: full-width form then full-width preview */
         <div className="space-y-6">
-          <div className="bg-card border rounded-xl p-6 space-y-6">
+          <div className="bg-card border rounded-xl p-6 space-y-6 w-[70%] max-w-4xl mx-auto">
             {/* Lang switch */}
             <div className="flex flex-wrap items-end gap-4 justify-between border-b border-border pb-4">
               <div className="flex gap-2">
