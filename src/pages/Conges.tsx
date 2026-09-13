@@ -364,12 +364,13 @@ export default function Conges() {
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-              <th className="p-4 font-medium">Employé</th>
-              <th className="p-4 font-medium">Type</th>
-              <th className="p-4 font-medium">Du</th>
-              <th className="p-4 font-medium">Au</th>
-              <th className="p-4 font-medium text-right">Durée</th>
-              <th className="p-4 font-medium">Motif</th>
+              <SortHeader label="Employé" field="worker" sort={sort} setSort={setSort} />
+              <SortHeader label="Type" field="type" sort={sort} setSort={setSort} />
+              <SortHeader label="Du" field="start_date" sort={sort} setSort={setSort} />
+              <SortHeader label="Au" field="end_date" sort={sort} setSort={setSort} />
+              <SortHeader label="Durée" field="duration" sort={sort} setSort={setSort} align="right" />
+              <SortHeader label="Motif" field="reason" sort={sort} setSort={setSort} />
+
               <th className="p-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
