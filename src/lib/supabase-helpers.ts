@@ -74,6 +74,38 @@ export async function createDocument(doc: DocumentInsert) {
   return data;
 }
 
+// ===== Références automatiques =====
+// La référence définitive est générée côté base de données (trigger + compteur
+// atomique par type et par année), donc deux créations simultanées ne peuvent
+// jamais obtenir le même numéro. Les fonctions ci-dessous servent uniquement à
+// afficher un aperçu et à recopier la référence obtenue dans le contenu.
+export function formatReference(kind: string, year: number, seq: number) {
+  const pad = kind === "conge" ? 2 : 3;
+  const prefix =
+    kind === "bon_sortie" ? "BS-" : kind === "bon_entree" ? "BE-" : kind === "avertissement" ? "AV-" : "";
+  return `${prefix}${String(seq).padStart(pad, "0")}/${year}`;
+}
+
+export async function previewNextReference(kind: string, year: number = new Date().getFullYear()) {
+  const { data } = await (supabase as any)
+    .from("reference_counters")
+    .select("last_seq")
+    .eq("kind", kind)
+    .eq("year", year)
+    .maybeSingle();
+  return formatReference(kind, year, (Number(data?.last_seq) || 0) + 1);
+}
+
+/** Crée un document et recopie la référence générée par la base dans son contenu. */
+export async function createDocumentWithReference(doc: DocumentInsert) {
+  const created = await createDocument(doc);
+  const ref = (created as any).reference as string | null;
+  if (!ref) return created;
+  const content: Record<string, any> = { ...((doc.content as any) ?? {}), reference: ref };
+  if (doc.document_type === "contract") content.num_contrat = ref;
+  return updateDocument(created.id, { content });
+}
+
 export async function updateDocument(id: string, doc: Partial<DocumentInsert>) {
   const { data, error } = await supabase.from("documents").update(doc).eq("id", id).select().single();
   if (error) throw error;
