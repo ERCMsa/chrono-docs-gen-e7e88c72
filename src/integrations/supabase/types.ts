@@ -100,6 +100,7 @@ export type Database = {
           end_date: string
           id: string
           reason: string | null
+          reference: string | null
           start_date: string
           updated_at: string
           worker_id: string
@@ -110,6 +111,7 @@ export type Database = {
           end_date: string
           id?: string
           reason?: string | null
+          reference?: string | null
           start_date: string
           updated_at?: string
           worker_id: string
@@ -120,6 +122,7 @@ export type Database = {
           end_date?: string
           id?: string
           reason?: string | null
+          reference?: string | null
           start_date?: string
           updated_at?: string
           worker_id?: string
@@ -140,6 +143,7 @@ export type Database = {
           created_at: string
           document_type: string
           id: string
+          reference: string | null
           rejection_reason: string | null
           responsible_validated_at: string | null
           responsible_validator_id: string | null
@@ -159,6 +163,7 @@ export type Database = {
           created_at?: string
           document_type: string
           id?: string
+          reference?: string | null
           rejection_reason?: string | null
           responsible_validated_at?: string | null
           responsible_validator_id?: string | null
@@ -178,6 +183,7 @@ export type Database = {
           created_at?: string
           document_type?: string
           id?: string
+          reference?: string | null
           rejection_reason?: string | null
           responsible_validated_at?: string | null
           responsible_validator_id?: string | null
@@ -280,6 +286,27 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_counters: {
+        Row: {
+          kind: string
+          last_seq: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          kind: string
+          last_seq?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          kind?: string
+          last_seq?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       workers: {
         Row: {
           acte_naissance: string | null
@@ -373,7 +400,15 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      format_reference: {
+        Args: { _kind: string; _seq: number; _year: number }
+        Returns: string
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      next_reference: {
+        Args: { _kind: string; _year?: number }
+        Returns: string
+      }
     }
     Enums: {
       user_role:
