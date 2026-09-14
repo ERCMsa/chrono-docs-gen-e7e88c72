@@ -448,6 +448,7 @@ export default function GenerateDocument() {
 
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
+      queryClient.invalidateQueries({ queryKey: ["next-num-contrat"] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["document", editId] });
       toast.success(isEdit ? "Document mis à jour" : "Document sauvegardé");
       navigate(`/documents/${data.id}`);
