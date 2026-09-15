@@ -281,6 +281,7 @@ export type Conge = {
   start_date: string;
   end_date: string;
   conge_type: CongeType;
+  reference?: string | null;
   reason: string | null;
   created_at: string;
   updated_at: string;

@@ -2,7 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, createDocument, updateDocument, createWorker, updateWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, createDocumentWithReference, updateDocument, createWorker, updateWorker, previewNextReference, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -336,32 +336,23 @@ export default function GenerateDocument() {
 
   const isContract = docType === "contract";
 
-  // Auto-increment contract number based on the last existing contract
-  const { data: nextNumContrat } = useQuery({
-    queryKey: ["next-num-contrat"],
-    enabled: isContract && !isEdit,
-    queryFn: async () => {
-      const year = new Date().getFullYear();
-      const { data, error } = await supabase
-        .from("documents")
-        .select("content")
-        .eq("document_type", "contract");
-      if (error) throw error;
-      let max = 0;
-      for (const d of data ?? []) {
-        const num = String((d.content as any)?.num_contrat ?? "");
-        const m = num.match(/^(\d+)\s*\/\s*(\d{4})$/);
-        if (m && Number(m[2]) === year) max = Math.max(max, parseInt(m[1], 10));
-      }
-      return `${String(max + 1).padStart(3, "0")}/${year}`;
-    },
+  // Référence auto-incrémentée : aperçu seulement, le numéro définitif est
+  // attribué par la base de données à l'enregistrement (aucun doublon possible).
+  const { data: nextReference } = useQuery({
+    queryKey: ["next-reference", docType],
+    enabled: !isEdit,
+    queryFn: () => previewNextReference(docType),
   });
 
   useEffect(() => {
-    if (isContract && !isEdit && nextNumContrat) {
-      setFormData((p) => ({ ...p, num_contrat: nextNumContrat }));
+    if (!isEdit && nextReference) {
+      setFormData((p) => ({
+        ...p,
+        reference: nextReference,
+        ...(isContract ? { num_contrat: nextReference } : {}),
+      }));
     }
-  }, [isContract, isEdit, nextNumContrat]);
+  }, [isContract, isEdit, nextReference]);
 
   // Load existing document when editing
   useEffect(() => {
@@ -413,16 +404,27 @@ export default function GenerateDocument() {
         setWorkerId(created.id);
       }
 
-      // Contract → employee sync (one-way, done here so no DB trigger loop is possible)
+      // Contract → employee sync (one-way, done here so no DB trigger loop is possible).
+      // Chaque champ commun est écrit s'il est renseigné sur le contrat (il remplit
+      // les champs vides de l'employé et met à jour ceux déjà remplis) ; un champ
+      // laissé vide sur le contrat n'efface jamais la donnée employé existante.
       if (isContract && targetWorkerId) {
-        const workerUpdate: Record<string, any> = {
-          phone: formData.tel || null,
-          address: formData.adresse || null,
-          position: formData.poste || null,
-          date_naissance: formData.date_nais || null,
-          lieu_naissance: formData.lieu_nais || null,
-          sexe: "Masculin",
+        const overlap: Record<string, string | undefined> = {
+          phone: formData.tel,
+          address: formData.adresse,
+          position: formData.poste,
+          date_naissance: formData.date_nais,
+          lieu_naissance: formData.lieu_nais,
+          cin: formData.cni,
+          hire_date: formData.date_debut,
+          date_debut_contrat: formData.date_debut,
+          date_fin_contrat: formData.date_fin,
+          duree_contrat: formData.duree_mois,
         };
+        const workerUpdate: Record<string, any> = { sexe: "Masculin" };
+        for (const [key, value] of Object.entries(overlap)) {
+          if (value && String(value).trim()) workerUpdate[key] = String(value).trim();
+        }
         const synced = await updateWorker(targetWorkerId, workerUpdate as any);
         targetWorker = synced as any;
         queryClient.invalidateQueries({ queryKey: ["workers"] });
@@ -438,7 +440,7 @@ export default function GenerateDocument() {
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
             content: contentPayload,
           })
-        : createDocument({
+        : createDocumentWithReference({
             worker_id: targetWorkerId,
             document_type: docType,
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
@@ -448,7 +450,7 @@ export default function GenerateDocument() {
 
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
-      queryClient.invalidateQueries({ queryKey: ["next-num-contrat"] });
+      queryClient.invalidateQueries({ queryKey: ["next-reference"] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["document", editId] });
       toast.success(isEdit ? "Document mis à jour" : "Document sauvegardé");
       navigate(`/documents/${data.id}`);
@@ -643,6 +645,15 @@ export default function GenerateDocument() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-card border rounded-xl p-6 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+                  Référence (automatique)
+                </Label>
+                <Input value={formData.reference ?? ""} readOnly disabled className="h-11 font-semibold" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Numéro attribué automatiquement à l'enregistrement — non modifiable.
+                </p>
+              </div>
               {fields.map((field) => (
                 <div key={field.key} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{field.label}</Label>

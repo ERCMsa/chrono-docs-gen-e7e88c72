@@ -60,7 +60,8 @@ export async function generateTitreCongePdf(conge: CongeWithWorker, refNumber?: 
   const daysWords = numToFrench(days);
   const nature = CONGE_TYPES[conge.conge_type].toUpperCase();
   const year = new Date(conge.start_date).getFullYear();
-  const ref = `${String(refNumber ?? 1).padStart(2, "0")}./ ${year}`;
+  // Référence générée automatiquement par la base de données à la création du congé
+  const ref = (conge as any).reference || `${String(refNumber ?? 1).padStart(2, "0")}/${year}`;
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
 
