@@ -410,7 +410,7 @@ export default function WorkerDetail() {
           ["N° Compte", (worker as any).numero_compte],
           ["Acte de naissance", (worker as any).acte_naissance],
           ["Responsable", worker.is_department_head ? "Oui" : "Non"],
-          ["Durée contrat", durationLabel((worker as any).duree_contrat)],
+          ["Durée contrat", `${(worker as any).duree_contrat} mois`],
           ["Début contrat", (worker as any).date_debut_contrat ? formatDateFR((worker as any).date_debut_contrat) : null],
           ["Fin contrat", (worker as any).date_fin_contrat ? formatDateFR((worker as any).date_fin_contrat) : null],
           ["Date démission", (worker as any).date_demission ? formatDateFR((worker as any).date_demission) : null],
