@@ -159,7 +159,7 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
   const templates: Record<string, React.ReactNode> = {
     bon_sortie: (
       <div style={pageStyle}>
-        <DocHeader title="BON D AUTORISATION" subtitle="Sortie" />
+        <DocHeader title="BON D AUTORISATION" subtitle="Sortie" reference={data.reference} />
         <InfoGrid items={sortieItems} />
         <VisaSection validationStatus={validationStatus} />
         <DocFooter />
@@ -168,7 +168,7 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
 
     bon_entree: (
       <div style={pageStyle}>
-        <DocHeader title="BON D AUTORISATION" subtitle="Entrée" />
+        <DocHeader title="BON D AUTORISATION" subtitle="Entrée" reference={data.reference} />
         <InfoGrid items={entreeItems} />
         <VisaSection validationStatus={validationStatus} />
         <DocFooter />
@@ -183,7 +183,7 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
 
     avertissement: (
       <div style={pageStyle}>
-        <DocHeader title="LETTRE D'AVERTISSEMENT" />
+        <DocHeader title="LETTRE D'AVERTISSEMENT" reference={data.reference} />
         <p style={{ textAlign: "right", fontSize: 13, color: "#666", marginBottom: 24 }}>Date : {data.avert_date || today}</p>
 
         <SectionTitle>Destinataire</SectionTitle>

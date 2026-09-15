@@ -2,7 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, createDocument, updateDocument, createWorker, updateWorker, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, createDocumentWithReference, updateDocument, createWorker, updateWorker, previewNextReference, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
