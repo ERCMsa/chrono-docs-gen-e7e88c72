@@ -440,7 +440,7 @@ export default function GenerateDocument() {
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
             content: contentPayload,
           })
-        : createDocument({
+        : createDocumentWithReference({
             worker_id: targetWorkerId,
             document_type: docType,
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
@@ -450,7 +450,7 @@ export default function GenerateDocument() {
 
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
-      queryClient.invalidateQueries({ queryKey: ["next-num-contrat"] });
+      queryClient.invalidateQueries({ queryKey: ["next-reference"] });
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["document", editId] });
       toast.success(isEdit ? "Document mis à jour" : "Document sauvegardé");
       navigate(`/documents/${data.id}`);
