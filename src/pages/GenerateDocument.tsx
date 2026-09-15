@@ -645,6 +645,15 @@ export default function GenerateDocument() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-card border rounded-xl p-6 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+                  Référence (automatique)
+                </Label>
+                <Input value={formData.reference ?? ""} readOnly disabled className="h-11 font-semibold" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Numéro attribué automatiquement à l'enregistrement — non modifiable.
+                </p>
+              </div>
               {fields.map((field) => (
                 <div key={field.key} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{field.label}</Label>
