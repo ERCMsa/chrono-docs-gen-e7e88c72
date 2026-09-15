@@ -404,16 +404,27 @@ export default function GenerateDocument() {
         setWorkerId(created.id);
       }
 
-      // Contract → employee sync (one-way, done here so no DB trigger loop is possible)
+      // Contract → employee sync (one-way, done here so no DB trigger loop is possible).
+      // Chaque champ commun est écrit s'il est renseigné sur le contrat (il remplit
+      // les champs vides de l'employé et met à jour ceux déjà remplis) ; un champ
+      // laissé vide sur le contrat n'efface jamais la donnée employé existante.
       if (isContract && targetWorkerId) {
-        const workerUpdate: Record<string, any> = {
-          phone: formData.tel || null,
-          address: formData.adresse || null,
-          position: formData.poste || null,
-          date_naissance: formData.date_nais || null,
-          lieu_naissance: formData.lieu_nais || null,
-          sexe: "Masculin",
+        const overlap: Record<string, string | undefined> = {
+          phone: formData.tel,
+          address: formData.adresse,
+          position: formData.poste,
+          date_naissance: formData.date_nais,
+          lieu_naissance: formData.lieu_nais,
+          cin: formData.cni,
+          hire_date: formData.date_debut,
+          date_debut_contrat: formData.date_debut,
+          date_fin_contrat: formData.date_fin,
+          duree_contrat: formData.duree_mois,
         };
+        const workerUpdate: Record<string, any> = { sexe: "Masculin" };
+        for (const [key, value] of Object.entries(overlap)) {
+          if (value && String(value).trim()) workerUpdate[key] = String(value).trim();
+        }
         const synced = await updateWorker(targetWorkerId, workerUpdate as any);
         targetWorker = synced as any;
         queryClient.invalidateQueries({ queryKey: ["workers"] });
