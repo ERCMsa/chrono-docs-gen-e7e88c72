@@ -336,32 +336,23 @@ export default function GenerateDocument() {
 
   const isContract = docType === "contract";
 
-  // Auto-increment contract number based on the last existing contract
-  const { data: nextNumContrat } = useQuery({
-    queryKey: ["next-num-contrat"],
-    enabled: isContract && !isEdit,
-    queryFn: async () => {
-      const year = new Date().getFullYear();
-      const { data, error } = await supabase
-        .from("documents")
-        .select("content")
-        .eq("document_type", "contract");
-      if (error) throw error;
-      let max = 0;
-      for (const d of data ?? []) {
-        const num = String((d.content as any)?.num_contrat ?? "");
-        const m = num.match(/^(\d+)\s*\/\s*(\d{4})$/);
-        if (m && Number(m[2]) === year) max = Math.max(max, parseInt(m[1], 10));
-      }
-      return `${String(max + 1).padStart(3, "0")}/${year}`;
-    },
+  // Référence auto-incrémentée : aperçu seulement, le numéro définitif est
+  // attribué par la base de données à l'enregistrement (aucun doublon possible).
+  const { data: nextReference } = useQuery({
+    queryKey: ["next-reference", docType],
+    enabled: !isEdit,
+    queryFn: () => previewNextReference(docType),
   });
 
   useEffect(() => {
-    if (isContract && !isEdit && nextNumContrat) {
-      setFormData((p) => ({ ...p, num_contrat: nextNumContrat }));
+    if (!isEdit && nextReference) {
+      setFormData((p) => ({
+        ...p,
+        reference: nextReference,
+        ...(isContract ? { num_contrat: nextReference } : {}),
+      }));
     }
-  }, [isContract, isEdit, nextNumContrat]);
+  }, [isContract, isEdit, nextReference]);
 
   // Load existing document when editing
   useEffect(() => {
