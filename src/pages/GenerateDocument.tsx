@@ -416,7 +416,6 @@ export default function GenerateDocument() {
           date_naissance: formData.date_nais,
           lieu_naissance: formData.lieu_nais,
           cin: formData.cni,
-          hire_date: formData.date_debut,
           date_debut_contrat: formData.date_debut,
           date_fin_contrat: formData.date_fin,
           duree_contrat: formData.duree_mois,
