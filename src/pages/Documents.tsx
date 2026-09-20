@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Trash2, CheckCircle, Clock } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import ContractsImportExport from "@/components/ContractsImportExport";
@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 export default function Documents() {
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
   const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
 
@@ -26,67 +27,98 @@ export default function Documents() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
-  const filtered = documents?.filter((doc) => typeFilter === "all" || doc.document_type === typeFilter);
+  const filtered = documents?.filter((doc) => {
+    const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
+    const query = search.trim().toLocaleLowerCase();
+    const matchesSearch = !query || [
+      doc.title,
+      (doc as any).reference,
+      (doc as any).workers?.full_name,
+    ].some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
+    return matchesType && matchesSearch;
+  });
 
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
+  const documentTabs = [
+    { key: "all", label: "Tous" },
+    ...Object.entries(DOCUMENT_TYPES).map(([key, { label }]) => ({ key, label })),
+  ];
+
+  const countForType = (type: string) => type === "all"
+    ? documents?.length ?? 0
+    : documents?.filter((doc) => doc.document_type === type).length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
-          <p className="text-muted-foreground mt-1">Tous les documents générés</p>
+          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {documents?.length ?? 0} document{(documents?.length ?? 0) !== 1 ? "s" : ""} généré{(documents?.length ?? 0) !== 1 ? "s" : ""}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ContractsImportExport />
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Filtrer par type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les types</SelectItem>
-              {Object.entries(DOCUMENT_TYPES).map(([key, { label }]) => (
-                <SelectItem key={key} value={key}>{label}</SelectItem>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Tabs value={typeFilter} onValueChange={setTypeFilter}>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="h-auto min-w-max gap-1 p-1">
+              {documentTabs.map((tab) => (
+                <TabsTrigger key={tab.key} value={tab.key} className="gap-2 px-3 py-2">
+                  {tab.label}
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                    {countForType(tab.key)}
+                  </span>
+                </TabsTrigger>
               ))}
-            </SelectContent>
-          </Select>
+            </TabsList>
+          </div>
+        </Tabs>
+
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher un document ou un employé"
+            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+          />
         </div>
       </div>
 
       {isLoading ? (
         <p className="text-muted-foreground">Chargement...</p>
       ) : filtered && filtered.length > 0 ? (
-        <div className="bg-card border rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Titre</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Type</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Employé</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Statut</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Date</th>
-                <th className="text-right p-4 text-sm font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((doc) => {
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="divide-y">
+            {filtered.map((doc) => {
                 const bon = isBon(doc.document_type);
                 const respOk = (doc as any).validated_by_responsible;
                 const rhOk = (doc as any).validated_by_rh;
                 const fullyValidated = respOk && rhOk;
 
                 return (
-                  <tr key={doc.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="p-4 font-medium">{doc.title}</td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                  <div key={doc.id} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5">
+                    <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="truncate font-medium">{doc.title}</p>
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                         {DOCUMENT_TYPES[doc.document_type as keyof typeof DOCUMENT_TYPES]?.label}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {(doc as any).workers?.full_name ?? "—"}
-                    </td>
-                    <td className="p-4">
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {(doc as any).workers?.full_name ?? "Employé non renseigné"}
+                        {(doc as any).reference ? ` · ${(doc as any).reference}` : ""}
+                        {` · ${formatDateFR(doc.created_at)}`}
+                      </p>
+                    </div>
+                    <div className="hidden shrink-0 md:block">
                       {bon ? (
                         fullyValidated ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Validé</span>
@@ -96,28 +128,26 @@ export default function Documents() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {formatDateFR(doc.created_at)}
-                    </td>
-                    <td className="p-4 text-right">
-                      <Link to={`/documents/${doc.id}`}>
-                        <Button variant="ghost" size="sm">Voir</Button>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
+                        <Button variant="ghost" size="icon">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </Link>
-                      <Button variant="ghost" size="icon" onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
+                      <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-12 bg-card rounded-xl border">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">Aucun document {typeFilter !== "all" ? "de ce type" : "créé"}</p>
+          <p className="text-muted-foreground">Aucun document {search || typeFilter !== "all" ? "ne correspond à cette recherche" : "créé"}</p>
         </div>
       )}
 
