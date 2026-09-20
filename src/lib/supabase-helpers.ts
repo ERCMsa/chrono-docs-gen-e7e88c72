@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { parseAnyDate, toISODate } from "@/lib/date-utils";
 
 type Worker = Database["public"]["Tables"]["workers"]["Row"];
 type WorkerInsert = Database["public"]["Tables"]["workers"]["Insert"];
@@ -248,6 +249,32 @@ export async function createAbsencesBulk(params: { worker_ids: string[]; absence
     absence_date: params.absence_date,
     reason: params.reason ?? null,
   }));
+  const { data, error } = await (supabase as any).from("absences").insert(rows).select();
+  if (error) throw error;
+  return data as Absence[];
+}
+
+/** Crée une absence pour chaque jour de la période [start_date → end_date], pour chaque employé. */
+export async function createAbsencesForRange(params: { worker_ids: string[]; start_date: string; end_date: string; reason?: string }) {
+  const start = parseAnyDate(params.start_date);
+  const end = parseAnyDate(params.end_date);
+  if (!start || !end) throw new Error("Dates invalides");
+  if (end < start) throw new Error("La date de fin doit être après ou égale à la date de début");
+
+  const days: string[] = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (cur <= end) {
+    days.push(toISODate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  const rows = days.flatMap((absence_date) =>
+    params.worker_ids.map((worker_id) => ({
+      worker_id,
+      absence_date,
+      reason: params.reason ?? null,
+    })),
+  );
   const { data, error } = await (supabase as any).from("absences").insert(rows).select();
   if (error) throw error;
   return data as Absence[];

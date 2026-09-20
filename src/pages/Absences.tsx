@@ -1,15 +1,16 @@
 import { DateInput } from "@/components/ui/date-input";
-import { formatDateFR } from "@/lib/date-utils";
+import { formatDateFR, parseAnyDate } from "@/lib/date-utils";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { getWorkers, getAbsences, createAbsence, createAbsencesBulk, updateAbsence, deleteAbsence, type AbsenceWithWorker } from "@/lib/supabase-helpers";
+import { getWorkers, getAbsences, createAbsence, createAbsencesBulk, createAbsencesForRange, updateAbsence, deleteAbsence, type AbsenceWithWorker } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, CalendarX, Trash2, Pencil, Filter } from "lucide-react";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
@@ -28,7 +29,9 @@ export default function Absences() {
   const [workerId, setWorkerId] = useState("");
   const [multiMode, setMultiMode] = useState(false);
   const [workerIds, setWorkerIds] = useState<string[]>([]);
+  const [dateMode, setDateMode] = useState<"single" | "range">("single");
   const [date, setDate] = useState(todayStr());
+  const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [filterWorker, setFilterWorker] = useState("all");
   const now = new Date();
@@ -50,12 +53,12 @@ export default function Absences() {
 
 
   const reset = () => {
-    setEditing(null); setWorkerId(""); setWorkerIds([]); setMultiMode(false); setDate(todayStr()); setReason("");
+    setEditing(null); setWorkerId(""); setWorkerIds([]); setMultiMode(false); setDateMode("single"); setDate(todayStr()); setEndDate(""); setReason("");
   };
 
   const openCreate = () => { reset(); setOpen(true); };
   const openEdit = (a: AbsenceWithWorker) => {
-    setEditing(a); setMultiMode(false); setWorkerId(a.worker_id); setDate(a.absence_date); setReason(a.reason ?? ""); setOpen(true);
+    setEditing(a); setMultiMode(false); setDateMode("single"); setWorkerId(a.worker_id); setDate(a.absence_date); setEndDate(""); setReason(a.reason ?? ""); setOpen(true);
   };
 
   const saveMut = useMutation({
@@ -63,11 +66,21 @@ export default function Absences() {
       if (editing) {
         return updateAbsence(editing.id, { absence_date: date, reason: reason.trim() || null });
       }
-      if (multiMode) {
-        const rows = await createAbsencesBulk({ worker_ids: workerIds, absence_date: date, reason: reason.trim() || undefined });
+      const reasonVal = reason.trim() || undefined;
+      if (dateMode === "range") {
+        const rows = await createAbsencesForRange({
+          worker_ids: multiMode ? workerIds : [workerId],
+          start_date: date,
+          end_date: endDate,
+          reason: reasonVal,
+        });
         return { bulkCount: rows.length };
       }
-      return createAbsence({ worker_id: workerId, absence_date: date, reason: reason.trim() || undefined });
+      if (multiMode) {
+        const rows = await createAbsencesBulk({ worker_ids: workerIds, absence_date: date, reason: reasonVal });
+        return { bulkCount: rows.length };
+      }
+      return createAbsence({ worker_id: workerId, absence_date: date, reason: reasonVal });
     },
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["absences"] });
@@ -93,8 +106,22 @@ export default function Absences() {
       if (workerIds.length === 0) return toast.error("Sélectionnez au moins un employé");
     } else if (!workerId) return toast.error("Sélectionnez un employé");
     if (!date) return toast.error("Date requise");
+    if (dateMode === "range") {
+      if (!endDate) return toast.error("Date de fin requise");
+      const s = parseAnyDate(date);
+      const e = parseAnyDate(endDate);
+      if (s && e && e < s) return toast.error("La date de fin doit être après ou égale à la date de début");
+    }
     saveMut.mutate();
   };
+
+  const rangeDayCount = useMemo(() => {
+    if (dateMode !== "range") return 0;
+    const s = parseAnyDate(date);
+    const e = parseAnyDate(endDate);
+    if (!s || !e) return 0;
+    return Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
+  }, [dateMode, date, endDate]);
 
   const filtered = useMemo(() => {
     if (!absences) return [];
@@ -136,10 +163,44 @@ export default function Absences() {
                   <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} />
                 )}
               </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date *</Label>
-                <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="h-11" />
-              </div>
+              {!editing && (
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Période</Label>
+                  <RadioGroup value={dateMode} onValueChange={(v) => setDateMode(v as "single" | "range")} className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="single" id="mode-single" />
+                      <Label htmlFor="mode-single" className="text-sm font-medium mb-0 cursor-pointer">Date unique</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="range" id="mode-range" />
+                      <Label htmlFor="mode-range" className="text-sm font-medium mb-0 cursor-pointer">Période (début → fin)</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+              {dateMode === "range" && !editing ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Du *</Label>
+                    <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="h-11" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Au *</Label>
+                    <DateInput value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-11" />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date *</Label>
+                  <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="h-11" />
+                </div>
+              )}
+              {rangeDayCount > 0 && !editing && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+                  {rangeDayCount} absence{rangeDayCount > 1 ? "s" : ""} seront enregistrées
+                  {multiMode && workerIds.length > 0 ? ` (pour ${workerIds.length} employé${workerIds.length > 1 ? "s" : ""} → ${rangeDayCount * workerIds.length} au total)` : ""}
+                </div>
+              )}
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Motif *</Label>
                 <Select value={reason} onValueChange={setReason}>
