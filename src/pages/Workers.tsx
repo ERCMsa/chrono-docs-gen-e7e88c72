@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Users, Search, Shield, Upload, Pencil, AlertTriangle, XCircle, Building2 } from "lucide-react";
+import { Plus, Users, Search, Shield, Upload, Pencil, AlertTriangle, XCircle, Building2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import ImportWorkersDialog from "@/components/ImportWorkersDialog";
@@ -22,6 +23,8 @@ const emptyWorker: WorkerInsert = {
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 
+type SortKey = "full_name" | "matricule" | "position" | "department" | "status";
+
 export default function Workers() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -32,6 +35,9 @@ export default function Workers() {
   const [isDeptHead, setIsDeptHead] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [view, setView] = useState("cards");
+  const [sortKey, setSortKey] = useState<SortKey>("full_name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [importOpen, setImportOpen] = useState(false);
   const { data: workers, isLoading } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: contractWorkerIds } = useQuery({ queryKey: ["workers-with-contract"], queryFn: getWorkerIdsWithContract });
@@ -91,6 +97,38 @@ export default function Workers() {
       statusFilter === "inactive" ? hasDemission : !hasDemission;
     return matchesSearch && matchesStatus;
   });
+
+  const sortedWorkers = [...(filtered ?? [])].sort((a, b) => {
+    const statusValue = (worker: typeof a) => {
+      if ((worker as any).date_demission) return "3-démission";
+      return contractWorkerIds?.has(worker.id) ? "1-contrat actif" : "2-sans contrat";
+    };
+    const value = (worker: typeof a) => sortKey === "status"
+      ? statusValue(worker)
+      : String(worker[sortKey] ?? "");
+    const comparison = value(a).localeCompare(value(b), "fr", { sensitivity: "base" });
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+    else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortHeader = ({ column, children, className = "" }: { column: SortKey; children: React.ReactNode; className?: string }) => {
+    const active = sortKey === column;
+    const Icon = !active ? ArrowUpDown : sortDirection === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <th className={`px-4 py-3 font-medium ${className}`} aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+        <button type="button" onClick={() => toggleSort(column)} className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+          {children} <Icon className="h-3.5 w-3.5" />
+        </button>
+      </th>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -277,53 +315,65 @@ export default function Workers() {
       {isLoading ? (
         <p className="text-muted-foreground">Chargement...</p>
       ) : filtered && filtered.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filtered.map((w) => {
+        <Tabs value={view} onValueChange={setView} className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {filtered.length} employé{filtered.length !== 1 ? "s" : ""}
+            </p>
+            <TabsList>
+              <TabsTrigger value="cards">Cartes</TabsTrigger>
+              <TabsTrigger value="list">Liste</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="cards" className="mt-0">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {filtered.map((w) => {
             const hasContract = contractWorkerIds?.has(w.id) ?? false;
+            const resignedAt = (w as any).date_demission;
             return (
               <Link key={w.id} to={`/workers/${w.id}`} className="block group">
-                <div className="bg-card border rounded-xl p-5 h-full flex flex-col hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0 relative">
-                      {initials(w.full_name)}
-                      {w.is_department_head && (
+                <div className="h-full rounded-xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex h-11 w-11 sh
+rink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-primary">
+                      {initials(w.full_name)}                      {w.is_department_head && (
                         <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5">
                           <Shield className="w-3 h-3" />
                         </span>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold truncate">{w.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{w.position || "—"}</p>
-                      {w.matricule && <p className="text-xs text-muted-foreground truncate">#{w.matricule}</p>}
+                      <p className="font-semibold leading-tight truncate">{w.full_name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground truncate">{w.position || "Fonction non renseignée"}</p>
                     </div>
                   </div>
 
-                  <div className="text-xs text-muted-foreground mb-3 truncate">
-                    {w.department || "Aucun département"}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {w.matricule && <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">#{w.matricule}</span>}
+                    <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{w.department || "Sans département"}</span>
                   </div>
 
-                  <div className="mt-auto space-y-2">
-                    {(w as any).date_demission && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-muted text-muted-foreground border">
-                        <XCircle className="w-3 h-3" /> Démission · {formatDateFR((w as any).date_demission)}
-                      </span>
-                    )}
-                    {hasContract ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-900/40">
-                        ✅ Actif
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-muted text-muted-foreground border">
-                        <AlertTriangle className="w-3 h-3" /> Pas de contrat
-                      </span>
-                    )}
-
+                  <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4">
+                    <div>
+                      {resignedAt ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <XCircle className="w-3.5 h-3.5" /> Parti le {formatDateFR(resignedAt)}
+                        </span>
+                      ) : hasContract ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-300">
+                          <span className="h-2 w-2 rounded-full bg-green-500" /> Contrat actif
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="w-3.5 h-3.5" /> Sans contrat
+                        </span>
+                      )}
+                    </div>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
-                      className="w-full"
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/workers/${w.id}?edit=1`); }}
                     >
                       <Pencil className="w-3.5 h-3.5 mr-1.5" /> Modifier
@@ -332,8 +382,52 @@ export default function Workers() {
                 </div>
               </Link>
             );
-          })}
-        </div>
+              })}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="list" className="mt-0">
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <SortHeader column="full_name" className="px-5">Employé</SortHeader>
+                    <SortHeader column="matricule">Matricule</SortHeader>
+                    <SortHeader column="position">Fonction</SortHeader>
+                    <SortHeader column="department">Département</SortHeader>
+                    <SortHeader column="status">Statut</SortHeader>
+                    <th className="px-5 py-3 text-right font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sortedWorkers.map((w) => {
+                    const hasContract = contractWorkerIds?.has(w.id) ?? false;
+                    const resignedAt = (w as any).date_demission;
+                    return (
+                      <tr key={w.id} className="transition-colors hover:bg-muted/30">
+                        <td className="px-5 py-3">
+                          <Link to={`/workers/${w.id}`} className="flex items-center gap-3 font-medium hover:text-primary">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">{initials(w.full_name)}</span>
+                            <span>{w.full_name}</span>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{w.matricule || "—"}</td>
+                        <td className="px-4 py-3">{w.position || "—"}</td>
+                        <td className="px-4 py-3">{w.department || "—"}</td>
+                        <td className="px-4 py-3">
+                          {resignedAt ? <span className="text-xs text-muted-foreground">Démission</span> : hasContract ? <span className="text-xs font-medium text-green-700 dark:text-green-300">Contrat actif</span> : <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Sans contrat</span>}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/workers/${w.id}?edit=1`)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+        </Tabs>
       ) : (
         <div className="text-center py-12 bg-card rounded-xl border">
           <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
