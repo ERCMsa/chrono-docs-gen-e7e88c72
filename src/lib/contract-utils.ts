@@ -38,4 +38,32 @@ export function getContractStatus(endDateStr?: string | null): ContractStatus {
   return { kind: "active", endDate: endDateStr, daysLeft: diffDays };
 }
 
+// ===== Expiration des contrats (documents) =====
+/** Statut d'expiration d'un document contrat : verte / orange (bientôt) / rouge (expiré). */
+export type ContractExpiry = "ok" | "expiring" | "expired";
+export type ExpiryFilter = "all" | ContractExpiry;
+
+export type ContractExpiryInfo =
+  | { status: "ok"; endDate: string; daysLeft: number }
+  | { status: "expiring"; endDate: string; daysLeft: number }
+  | { status: "expired"; endDate: string; daysOver: number };
+
+/** Extrait la date de fin (`date_fin`) du contenu d'un document contrat. */
+export function getContractEndDate(content: unknown): string | null {
+  if (!content || typeof content !== "object") return null;
+  const fin = (content as Record<string, unknown>).date_fin;
+  return typeof fin === "string" && fin.length >= 8 ? fin : null;
+}
+
+/** Calcule le statut d'expiration à partir du contenu d'un document. */
+export function getContractExpiry(content: unknown): ContractExpiryInfo | null {
+  const endDate = getContractEndDate(content);
+  if (!endDate) return null;
+  const st = getContractStatus(endDate);
+  if (st.kind === "expired") return { status: "expired", endDate, daysOver: st.daysOver };
+  if (st.kind === "expiring") return { status: "expiring", endDate, daysLeft: st.daysLeft };
+  if (st.kind === "active") return { status: "ok", endDate, daysLeft: st.daysLeft };
+  return null;
+}
+
 export { formatDateFR } from "./date-utils";

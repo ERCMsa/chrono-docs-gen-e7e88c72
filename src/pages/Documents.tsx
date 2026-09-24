@@ -9,11 +9,14 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import ContractsImportExport from "@/components/ContractsImportExport";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
+import { getContractExpiry, type ExpiryFilter } from "@/lib/contract-utils";
 
 export default function Documents() {
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [expirationFilter, setExpirationFilter] = useState<ExpiryFilter>("all");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
   const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
 
@@ -35,7 +38,11 @@ export default function Documents() {
       (doc as any).reference,
       (doc as any).workers?.full_name,
     ].some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
-    return matchesType && matchesSearch;
+    const matchesExpiry =
+      expirationFilter === "all" ||
+      doc.document_type !== "contract" ||
+      getContractExpiry((doc as any).content)?.status === expirationFilter;
+    return matchesType && matchesSearch && matchesExpiry;
   });
 
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
@@ -89,6 +96,16 @@ export default function Documents() {
         </div>
       </div>
 
+      <ContractExpirySummary
+        documents={documents ?? []}
+        active={expirationFilter}
+        onSelect={(s) => {
+          const next = s === "all" ? "all" : s;
+          if (next !== "all" && typeFilter === "all") setTypeFilter("contract");
+          setExpirationFilter(next);
+        }}
+      />
+
       {isLoading ? (
         <p className="text-muted-foreground">Chargement...</p>
       ) : filtered && filtered.length > 0 ? (
@@ -99,9 +116,19 @@ export default function Documents() {
                 const respOk = (doc as any).validated_by_responsible;
                 const rhOk = (doc as any).validated_by_rh;
                 const fullyValidated = respOk && rhOk;
+                const contractExpiry = doc.document_type === "contract" ? getContractExpiry((doc as any).content) : null;
+                const rowTint =
+                  contractExpiry?.status === "expired"
+                    ? "bg-red-50/70 ring-1 ring-inset ring-red-200 dark:bg-red-500/5 dark:ring-red-500/20"
+                    : contractExpiry?.status === "expiring"
+                      ? "bg-orange-50/50 dark:bg-orange-400/5"
+                      : "";
 
                 return (
-                  <div key={doc.id} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5">
+                  <div
+                    key={doc.id}
+                    className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5 ${rowTint}`}
+                  >
                     <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
                       <FileText className="h-4 w-4" />
                     </div>
@@ -125,6 +152,8 @@ export default function Documents() {
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><Clock className="w-3.5 h-3.5" /> En attente {respOk ? "(RH)" : rhOk ? "(Chef)" : ""}</span>
                         )
+                      ) : doc.document_type === "contract" ? (
+                        <ContractExpiryBadge content={(doc as any).content} />
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
