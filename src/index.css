@@ -113,6 +113,28 @@
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Contract / Avenant: fixed A4 sheets -> exact page counts            */
+/* The contract content is split across exactly 3 .a4-sheet elements,  */
+/* the avenant across 1. In print each sheet = exactly one A4 page;    */
+/* overflow:hidden clips as a last-resort safety net so the page count */
+/* can never exceed 3 (contract) / 1 (avenant).                        */
+/* ------------------------------------------------------------------ */
+@page {
+  size: A4;
+  margin: 10;
+}
+
+.a4-sheet {
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  page-break-after: always;
+}
+.a4-sheet:last-child {
+  page-break-after: auto;
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -130,29 +152,17 @@
     padding: 0;
     box-shadow: none;
   }
-  /* When printing avenant only, hide contract and show avenant */
-  body.print-avenant #document-preview,
-  body.print-avenant #document-preview * {
-    visibility: hidden !important;
-  }
-  body.print-avenant #avenant-preview,
-  body.print-avenant #avenant-preview * {
-    visibility: visible !important;
-  }
-  body.print-avenant #avenant-preview {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    box-shadow: none;
-  }
   /* Hide VALIDÉ watermark stamps when printing */
   #document-preview [style*="VALIDÉ"],
   .validation-stamp {
     display: none !important;
     visibility: hidden !important;
+  }
+
+  /* Fixed sheets: remove screen shadows / centering, each sheet = 1 A4 page */
+  .a4-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
   }
 }
 

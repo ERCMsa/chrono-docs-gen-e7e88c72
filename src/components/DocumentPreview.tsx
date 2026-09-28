@@ -176,9 +176,7 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     ),
 
     contract: (
-       <div id="document-preview">
-          <ContractPreview worker={worker} data={data} lang='ar' logoDataUrl={data.logoDataUrl || logoErcm} />
-        </div>
+      <ContractPreview worker={worker} data={data} lang='ar' logoDataUrl={data.logoDataUrl || logoErcm} />
     ),
 
     avertissement: (

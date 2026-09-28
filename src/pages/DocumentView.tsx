@@ -77,16 +77,6 @@ export default function DocumentView() {
       ? { ...EMPTY_AVENANT, ...(rawAvenant as Partial<AvenantData>) }
       : null;
 
-  const printAvenant = () => {
-    document.body.classList.add("print-avenant");
-    const cleanup = () => {
-      document.body.classList.remove("print-avenant");
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-    setTimeout(() => window.print(), 50);
-  };
-
   const displayName = authUser?.full_name || authUser?.username || "—";
 
 
@@ -195,31 +185,15 @@ export default function DocumentView() {
             rh_validated_at: doc.rh_validated_at,
           } : undefined}
         />
+        {avenantData && worker && (
+          <AvenantPreview
+            worker={worker}
+            avenant={avenantData}
+            contractData={formData}
+            logoDataUrl={formData.logoDataUrl || logoErcm}
+          />
+        )}
       </div>
-
-      {avenantData && worker && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3 border-t pt-6">
-            <h2 className="text-lg font-semibold">Avenant nº {avenantData.numAvenant}</h2>
-            <div className="flex gap-2">
-              <Button onClick={printAvenant} variant="outline" size="sm">
-                <Printer className="w-4 h-4 mr-2" />Imprimer l'avenant
-              </Button>
-              <Button onClick={() => exportToPdf("avenant-preview", `Avenant_${avenantData.numAvenant}_${worker.full_name}`)} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />PDF Avenant
-              </Button>
-            </div>
-          </div>
-          <div id="avenant-preview">
-            <AvenantPreview
-              worker={worker}
-              avenant={avenantData}
-              contractData={formData}
-              logoDataUrl={formData.logoDataUrl || logoErcm}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

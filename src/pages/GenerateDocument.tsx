@@ -629,12 +629,11 @@ export default function GenerateDocument() {
           {selectedWorker && (
             <div id="document-preview">
               <ContractPreview worker={selectedWorker} data={formData} lang={lang} logoDataUrl={logoDataUrl} />
-            </div>
-          )}
-
-          {selectedWorker && showAvenant && (
-            <div ref={avenantRef} id="avenant-preview">
-              <AvenantPreview worker={selectedWorker} avenant={avenant} contractData={formData} logoDataUrl={logoDataUrl} />
+              {showAvenant && (
+                <div ref={avenantRef}>
+                  <AvenantPreview worker={selectedWorker} avenant={avenant} contractData={formData} logoDataUrl={logoDataUrl} />
+                </div>
+              )}
             </div>
           )}
 
