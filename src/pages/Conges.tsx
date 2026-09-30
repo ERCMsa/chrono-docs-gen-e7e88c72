@@ -221,7 +221,20 @@ export default function Conges() {
         enterDate,
       };
     }).filter((r) => !q || `${r.name} ${r.matricule}`.toLowerCase().includes(q));
-    return list.sort((a, b) => compareValues((a as any)[droitSort.field], (b as any)[droitSort.field], droitSort.dir));
+    return list.sort((a, b) => {
+      const field = droitSort.field;
+      // Matricule contains numbers -> sort numerically, not as strings
+      if (field === "matricule") {
+        const toNum = (v: any) => {
+          const digits = String(v ?? "").replace(/\D/g, "");
+          const n = digits === "" ? 0 : Number(digits);
+          return Number.isFinite(n) ? n : 0;
+        };
+        const mul = droitSort.dir === "asc" ? 1 : -1;
+        return (toNum((a as any)[field]) - toNum((b as any)[field])) * mul;
+      }
+      return compareValues((a as any)[field], (b as any)[field], droitSort.dir);
+    });
   }, [workers, droitConges, droitSearch, droitSort]);
 
 
