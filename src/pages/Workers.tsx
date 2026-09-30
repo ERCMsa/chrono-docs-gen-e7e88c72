@@ -103,10 +103,22 @@ export default function Workers() {
       if ((worker as any).date_demission) return "3-démission";
       return contractWorkerIds?.has(worker.id) ? "1-contrat actif" : "2-sans contrat";
     };
-    const value = (worker: typeof a) => sortKey === "status"
-      ? statusValue(worker)
-      : String(worker[sortKey] ?? "");
-    const comparison = value(a).localeCompare(value(b), "fr", { sensitivity: "base" });
+    const value = (worker: typeof a): string | number => {
+      if (sortKey === "status") return statusValue(worker);
+      // Matricule contains numbers -> sort numerically, not as strings
+      if (sortKey === "matricule") {
+        const digits = String(worker[sortKey] ?? "").replace(/\D/g, "");
+        const num = digits === "" ? 0 : Number(digits);
+        return Number.isFinite(num) ? num : 0;
+      }
+      return String(worker[sortKey] ?? "");
+    };
+    const va = value(a);
+    const vb = value(b);
+    const comparison =
+      typeof va === "number" && typeof vb === "number"
+        ? va - vb
+        : String(va).localeCompare(String(vb), "fr", { sensitivity: "base" });
     return sortDirection === "asc" ? comparison : -comparison;
   });
 
