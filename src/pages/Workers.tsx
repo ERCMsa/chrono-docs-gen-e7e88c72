@@ -1,5 +1,5 @@
 import { DateInput } from "@/components/ui/date-input";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWorkers, createWorker, getWorkerIdsWithContract, type WorkerInsert } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Users, Search, Shield, Upload, Pencil, AlertTriangle, XCircle, Building2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Users, Search, Shield, Upload, Pencil, AlertTriangle, XCircle, Building2, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import ImportWorkersDialog from "@/components/ImportWorkersDialog";
@@ -35,12 +35,28 @@ export default function Workers() {
   const [isDeptHead, setIsDeptHead] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  // Advanced filters (applied to both cards and list views)
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [sexeFilter, setSexeFilter] = useState<string>("all");
+  const [contractFilter, setContractFilter] = useState<"all" | "active" | "none">("all");
+  const [hireFrom, setHireFrom] = useState("");
+  const [hireTo, setHireTo] = useState("");
   const [view, setView] = useState("cards");
   const [sortKey, setSortKey] = useState<SortKey>("full_name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [importOpen, setImportOpen] = useState(false);
   const { data: workers, isLoading } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: contractWorkerIds } = useQuery({ queryKey: ["workers-with-contract"], queryFn: getWorkerIdsWithContract });
+
+  const positionOptions = useMemo(
+    () => [...new Set((workers ?? []).map((w) => w.position ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
+    [workers],
+  );
+  const departmentOptions = useMemo(
+    () => [...new Set((workers ?? []).map((w) => w.department ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
+    [workers],
+  );
 
   const DATE_FIELDS = ["date_naissance", "hire_date", "date_debut_contrat", "date_fin_contrat", "date_demission"];
   const sanitize = (obj: Record<string, any>) => {
@@ -95,7 +111,21 @@ export default function Workers() {
     const matchesStatus =
       statusFilter === "all" ? true :
       statusFilter === "inactive" ? hasDemission : !hasDemission;
-    return matchesSearch && matchesStatus;
+
+    const matchesPosition = positionFilter === "all" || (w.position ?? "") === positionFilter;
+    const matchesDepartment = departmentFilter === "all" || (w.department ?? "") === departmentFilter;
+    const matchesSexe = sexeFilter === "all" || (w.sexe ?? "") === sexeFilter;
+    const hasContract = contractWorkerIds?.has(w.id) ?? false;
+    const matchesContract =
+      contractFilter === "all" ? true :
+      contractFilter === "active" ? hasContract : !hasContract;
+    const hireDate = w.hire_date ?? (w as any).date_debut_contrat;
+    const matchesHire =
+      (!hireFrom || (!!hireDate && hireDate >= hireFrom)) &&
+      (!hireTo || (!!hireDate && hireDate <= hireTo));
+
+    return matchesSearch && matchesStatus && matchesPosition && matchesDepartment &&
+      matchesSexe && matchesContract && matchesHire;
   });
 
   const sortedWorkers = [...(filtered ?? [])].sort((a, b) => {
@@ -128,6 +158,19 @@ export default function Workers() {
       setSortKey(key);
       setSortDirection("asc");
     }
+  };
+
+  const hasActiveFilters =
+    positionFilter !== "all" || departmentFilter !== "all" || sexeFilter !== "all" ||
+    contractFilter !== "all" || !!hireFrom || !!hireTo;
+
+  const resetFilters = () => {
+    setPositionFilter("all");
+    setDepartmentFilter("all");
+    setSexeFilter("all");
+    setContractFilter("all");
+    setHireFrom("");
+    setHireTo("");
   };
 
   const SortHeader = ({ column, children, className = "" }: { column: SortKey; children: React.ReactNode; className?: string }) => {
@@ -322,6 +365,70 @@ export default function Workers() {
             <SelectItem value="inactive">Non actifs (démission)</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Advanced filters */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
+        <div className="w-40 space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Fonction</Label>
+          <Select value={positionFilter} onValueChange={setPositionFilter}>
+            <SelectTrigger className="h-10"><SelectValue placeholder="Toutes" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes</SelectItem>
+              {positionOptions.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-44 space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Département</Label>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              {departmentOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Date d'embauche</Label>
+          <div className="flex items-center gap-2">
+            <DateInput value={hireFrom} onChange={(e) => setHireFrom(e.target.value)} placeholder="Du jj/mm/aaaa" className="w-32 h-10" />
+            <span className="text-muted-foreground">—</span>
+            <DateInput value={hireTo} onChange={(e) => setHireTo(e.target.value)} placeholder="Au jj/mm/aaaa" className="w-32 h-10" />
+          </div>
+        </div>
+
+        <div className="w-36 space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Sexe</Label>
+          <Select value={sexeFilter} onValueChange={setSexeFilter}>
+            <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              <SelectItem value="Masculin">Masculin</SelectItem>
+              <SelectItem value="Féminin">Féminin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-44 space-y-1.5">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Contrat</Label>
+          <Select value={contractFilter} onValueChange={(v) => setContractFilter(v as "all" | "active" | "none")}>
+            <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              <SelectItem value="active">Contrat actif</SelectItem>
+              <SelectItem value="none">Sans contrat</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="mb-0.5">
+            <X className="w-3.5 h-3.5 mr-1.5" />Réinitialiser
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
