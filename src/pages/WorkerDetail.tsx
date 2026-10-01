@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR, durationLabel } from "@/lib/contract-utils";
+import { DEPARTMENTS } from "@/lib/departments";
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2 }).format(n);
 
@@ -257,7 +258,12 @@ export default function WorkerDetail() {
                   </div>
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Département</Label>
-                    <Input value={editForm.department ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, department: e.target.value }))} placeholder="Ex: Production" className="h-11" />
+                    <Select value={editForm.department ?? ""} onValueChange={(v) => setEditForm((p) => ({ ...p, department: v }))}>
+                      <SelectTrigger className="h-11"><SelectValue placeholder="Sélectionner un département" /></SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date de Recrutement</Label>

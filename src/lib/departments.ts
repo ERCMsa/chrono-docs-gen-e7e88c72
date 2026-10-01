@@ -1,0 +1,17 @@
+export const DEPARTMENTS = [
+  "MONTAGE",
+  "PRODUCTION",
+  "MAINTENANCE",
+  "GDS",
+  "ENGINEER",
+  "ADMINISTRATION",
+  "GENIE CIVIL",
+  "FINANCE",
+  "IT DEVELOPMENT",
+  "COMMERCIAL",
+  "ETRANGER",
+  "CNC",
+  "STAGER",
+  "HSE",
+  "QUALITY",
+];

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import ImportWorkersDialog from "@/components/ImportWorkersDialog";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR } from "@/lib/contract-utils";
+import { DEPARTMENTS } from "@/lib/departments";
 import { useAuth } from "@/contexts/AuthContext";
 
 const emptyWorker: WorkerInsert = {
@@ -276,7 +277,12 @@ export default function Workers() {
                   </div>
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Département</Label>
-                    <Input value={form.department ?? ""} onChange={(e) => updateField("department", e.target.value)} placeholder="Ex: Production" className="h-11" />
+                    <Select value={form.department ?? ""} onValueChange={(v) => updateField("department", v)}>
+                      <SelectTrigger className="h-11"><SelectValue placeholder="Sélectionner un département" /></SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date de Recrutement</Label>
