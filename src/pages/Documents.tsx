@@ -7,6 +7,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { ListRowsSkeleton } from "@/components/Skeletons";
 import ContractsImportExport from "@/components/ContractsImportExport";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
@@ -57,17 +60,12 @@ export default function Documents() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {documents?.length ?? 0} document{(documents?.length ?? 0) !== 1 ? "s" : ""} généré{(documents?.length ?? 0) !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ContractsImportExport />
-        </div>
-      </div>
+      <PageHeader
+        title="Documents"
+        description={`${documents?.length ?? 0} document${(documents?.length ?? 0) !== 1 ? "s" : ""} généré${(documents?.length ?? 0) !== 1 ? "s" : ""}`}
+      >
+        <ContractsImportExport />
+      </PageHeader>
 
       <div className="space-y-3">
         <Tabs value={typeFilter} onValueChange={setTypeFilter}>
@@ -76,7 +74,7 @@ export default function Documents() {
               {documentTabs.map((tab) => (
                 <TabsTrigger key={tab.key} value={tab.key} className="gap-2 px-3 py-2">
                   {tab.label}
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {countForType(tab.key)}
                   </span>
                 </TabsTrigger>
@@ -91,7 +89,7 @@ export default function Documents() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Rechercher un document ou un employé"
-            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+            className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40"
           />
         </div>
       </div>
@@ -107,77 +105,80 @@ export default function Documents() {
       />
 
       {isLoading ? (
-        <p className="text-muted-foreground">Chargement...</p>
+        <ListRowsSkeleton />
       ) : filtered && filtered.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="divide-y">
-            {filtered.map((doc) => {
-                const bon = isBon(doc.document_type);
-                const respOk = (doc as any).validated_by_responsible;
-                const rhOk = (doc as any).validated_by_rh;
-                const fullyValidated = respOk && rhOk;
-                const contractExpiry = doc.document_type === "contract" ? getContractExpiry((doc as any).content) : null;
-                const rowTint =
-                  contractExpiry?.status === "expired"
-                    ? "bg-red-50/70 ring-1 ring-inset ring-red-200 dark:bg-red-500/5 dark:ring-red-500/20"
-                    : contractExpiry?.status === "expiring"
-                      ? "bg-orange-50/50 dark:bg-orange-400/5"
-                      : "";
+        <div className="panel divide-y">
+          {filtered.map((doc) => {
+            const bon = isBon(doc.document_type);
+            const respOk = (doc as any).validated_by_responsible;
+            const rhOk = (doc as any).validated_by_rh;
+            const fullyValidated = respOk && rhOk;
+            const contractExpiry = doc.document_type === "contract" ? getContractExpiry((doc as any).content) : null;
+            const rowTint =
+              contractExpiry?.status === "expired"
+                ? "bg-destructive/5"
+                : contractExpiry?.status === "expiring"
+                  ? "bg-warning/5"
+                  : "";
 
-                return (
-                  <div
-                    key={doc.id}
-                    className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5 ${rowTint}`}
-                  >
-                    <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="truncate font-medium">{doc.title}</p>
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                        {DOCUMENT_TYPES[doc.document_type as keyof typeof DOCUMENT_TYPES]?.label}
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {(doc as any).workers?.full_name ?? "Employé non renseigné"}
-                        {(doc as any).reference ? ` · ${(doc as any).reference}` : ""}
-                        {` · ${formatDateFR(doc.created_at)}`}
-                      </p>
-                    </div>
-                    <div className="hidden shrink-0 md:block">
-                      {bon ? (
-                        fullyValidated ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Validé</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><Clock className="w-3.5 h-3.5" /> En attente {respOk ? "(RH)" : rhOk ? "(Chef)" : ""}</span>
-                        )
-                      ) : doc.document_type === "contract" ? (
-                        <ContractExpiryBadge content={(doc as any).content} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
-                        <Button variant="ghost" size="icon">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
+            return (
+              <div
+                key={doc.id}
+                className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5 ${rowTint}`}
+              >
+                <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="truncate font-medium">{doc.title}</p>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      {DOCUMENT_TYPES[doc.document_type as keyof typeof DOCUMENT_TYPES]?.label}
+                    </span>
                   </div>
-                );
-              })}
-          </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {(doc as any).workers?.full_name ?? "Employé non renseigné"}
+                    {(doc as any).reference ? ` · ${(doc as any).reference}` : ""}
+                    {` · ${formatDateFR(doc.created_at)}`}
+                  </p>
+                </div>
+                <div className="hidden shrink-0 md:block">
+                  {bon ? (
+                    fullyValidated ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success"><CheckCircle className="h-3.5 w-3.5" /> Validé</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning"><Clock className="h-3.5 w-3.5" /> En attente {respOk ? "(RH)" : rhOk ? "(Chef)" : ""}</span>
+                    )
+                  ) : doc.document_type === "contract" ? (
+                    <ContractExpiryBadge content={(doc as any).content} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
+                    <Button variant="ghost" size="icon">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div className="text-center py-12 bg-card rounded-xl border">
-          <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">Aucun document {search || typeFilter !== "all" ? "ne correspond à cette recherche" : "créé"}</p>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="Aucun document"
+          description={
+            search || typeFilter !== "all"
+              ? "Aucun document ne correspond à votre recherche. Essayez de modifier vos filtres ou votre terme de recherche."
+              : "Aucun document n'a encore été généré. Les documents créés apparaîtront ici."
+          }
+        />
       )}
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>

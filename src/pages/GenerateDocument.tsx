@@ -145,16 +145,20 @@ function ContractForm({ formData, setFormData, worker }: {
     </div>
   );
 
-  // Auto-fill from worker data
+  // Auto-fill from worker data: refill every time the selected employee
+  // changes. Previously `p.field || worker.field` kept the first employee's
+  // values when switching to another employee, so the second employee's data
+  // never appeared in the form.
   useEffect(() => {
     if (worker) {
       setFormData(p => ({
         ...p,
-        date_nais: p.date_nais || worker.date_naissance || "",
-        lieu_nais: p.lieu_nais || worker.lieu_naissance || "",
-        adresse: p.adresse || worker.address || "",
-        tel: p.tel || worker.phone || "",
-        poste: p.poste || worker.position || "",
+        date_nais: worker.date_naissance ?? "",
+        lieu_nais: worker.lieu_naissance ?? "",
+        adresse: worker.address ?? "",
+        tel: worker.phone ?? "",
+        poste: worker.position ?? "",
+        cni: worker.cin ?? "",
       }));
     }
   }, [worker?.id]);
@@ -472,8 +476,8 @@ export default function GenerateDocument() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{isEdit ? "Modifier — " : ""}{DOCUMENT_TYPES[docType].label}</h1>
-          <p className="text-muted-foreground mt-1">{isEdit ? "Modifiez les informations puis enregistrez les changements" : "Remplissez les informations pour générer le document"}</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-[26px]">{isEdit ? "Modifier — " : ""}{DOCUMENT_TYPES[docType].label}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{isEdit ? "Modifiez les informations puis enregistrez les changements" : "Remplissez les informations pour générer le document"}</p>
         </div>
         {isContract && (
           <div className="flex flex-wrap items-center gap-2">
@@ -492,7 +496,7 @@ export default function GenerateDocument() {
       )}
 
       {/* Employee selector - always on top */}
-      <div className="bg-card border rounded-xl p-6">
+      <div className="panel p-6">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé *</Label>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex-1 min-w-[280px] max-w-md">
@@ -560,7 +564,7 @@ export default function GenerateDocument() {
       {isContract ? (
         /* Contract: full-width form then full-width preview */
         <div className="space-y-6">
-          <div className="bg-card border rounded-xl p-6 space-y-6 w-[70%] max-w-4xl mx-auto">
+          <div className="panel space-y-6 p-6 w-full max-w-4xl mx-auto">
             {/* Lang switch */}
             <div className="flex flex-wrap items-end gap-4 justify-between border-b border-border pb-4">
               <div className="flex gap-2">
@@ -595,7 +599,7 @@ export default function GenerateDocument() {
 
             {/* Avenant inline form */}
             {showAvenant && (
-              <div className="mt-4 p-4 border-2 border-primary/40 rounded-lg bg-accent/20 space-y-4">
+              <div className="mt-4 space-y-4 rounded-lg border-2 border-primary/40 bg-accent/40 p-4">
                 <h3 className="text-center font-bold text-lg">📎 ملحق رقم {avenant.numAvenant} - تفصيل الأجر</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div><Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">رقم الملحق</Label>

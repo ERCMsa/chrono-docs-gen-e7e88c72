@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
+import { ListRowsSkeleton } from "@/components/Skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR, durationLabel } from "@/lib/contract-utils";
 import { DEPARTMENTS } from "@/lib/departments";
 
@@ -156,7 +159,30 @@ export default function WorkerDetail() {
     editMutation.mutate();
   };
 
-  if (loadingWorker) return <p className="text-muted-foreground">Chargement...</p>;
+  if (loadingWorker) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-2/3" />
+        <div className="panel space-y-4 p-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-11 w-11 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!worker) return <p className="text-destructive">Employé introuvable</p>;
 
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
@@ -165,24 +191,16 @@ export default function WorkerDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/workers"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              {worker.full_name}
-              {worker.is_department_head && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> Chef de service
-                </span>
-              )}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {[worker.matricule ? `#${worker.matricule}` : null, worker.position, worker.department].filter(Boolean).join(" • ")}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+      <PageHeader
+        title={worker.full_name}
+        description={[worker.matricule ? `#${worker.matricule}` : null, worker.position, worker.department].filter(Boolean).join(" • ")}
+      >
+        {worker.is_department_head && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Shield className="w-3 h-3" /> Chef de service
+          </span>
+        )}
+        <Link to="/workers"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" />Retour</Button></Link>
         <Button variant="outline" onClick={() => setRenewOpen(true)}><RefreshCw className="w-4 h-4 mr-2" />Renouveler le contrat</Button>
         <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Supprimer l'employé</Button>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -331,8 +349,7 @@ export default function WorkerDetail() {
             </form>
           </DialogContent>
         </Dialog>
-        </div>
-      </div>
+      </PageHeader>
 
       {/* Renew Contract Dialog */}
       <Dialog open={renewOpen} onOpenChange={setRenewOpen}>
@@ -390,17 +407,17 @@ export default function WorkerDetail() {
       {/* Contract status badge (derived from documents) */}
       <div>
         {hasContractDoc ? (
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-900/40">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-sm font-semibold text-success">
             ✅ Actif — Contrat en cours
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full bg-muted text-muted-foreground border">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-muted-foreground">
             <AlertTriangle className="w-4 h-4" /> Pas de contrat
           </span>
         )}
       </div>
 
-      <div className="bg-card border rounded-xl p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="panel p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           ["Matricule", worker.matricule],
           ["Téléphone", worker.phone],
@@ -422,15 +439,15 @@ export default function WorkerDetail() {
           ["Date démission", (worker as any).date_demission ? formatDateFR((worker as any).date_demission) : null],
         ].map(([label, value]) => (
           <div key={label as string}>
-            <p className="text-xs text-muted-foreground">{label as string}</p>
-            <p className="font-medium">{(value as string) || "—"}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label as string}</p>
+            <p className="text-sm font-medium">{(value as string) || "—"}</p>
           </div>
         ))}
       </div>
 
 
       {/* Solde acompte */}
-      <div className="bg-card border rounded-xl p-5 flex items-center justify-between">
+      <div className="panel p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-primary/10 text-primary"><Wallet className="w-5 h-5" /></div>
           <div>
@@ -445,37 +462,37 @@ export default function WorkerDetail() {
       {acomptes && acomptes.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold mb-3">Historique acomptes ({acomptes.length})</h2>
-          <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <div className="panel overflow-hidden overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-                  <th className="p-4 font-medium">Date</th>
-                  <th className="p-4 font-medium">Type</th>
-                  <th className="p-4 font-medium text-right">Montant</th>
-                  <th className="p-4 font-medium text-right">Avant</th>
-                  <th className="p-4 font-medium text-right">Après</th>
-                  <th className="p-4 font-medium">Note</th>
-                  <th className="p-4 font-medium text-right">Action</th>
+                <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Montant</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avant</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Après</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Note</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {acomptes.map((t) => (
-                  <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-4 text-sm">{formatDateFR(t.transaction_date)}</td>
-                    <td className="p-4">
+                  <tr key={t.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 text-sm align-middle">{formatDateFR(t.transaction_date)}</td>
+                    <td className="px-4 py-3 align-middle">
                       {t.type === "reglement" ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><TrendingDown className="w-3 h-3" />Règlement</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success"><TrendingDown className="w-3 h-3" />Règlement</span>
                       ) : t.type === "dette" ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600"><TrendingUp className="w-3 h-3" />Dette</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive"><TrendingUp className="w-3 h-3" />Dette</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><TrendingUp className="w-3 h-3" />Acompte</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning"><TrendingUp className="w-3 h-3" />Acompte</span>
                       )}
                     </td>
-                    <td className="p-4 text-right font-semibold">{fmt(Number(t.amount))} DA</td>
-                    <td className="p-4 text-right text-sm text-muted-foreground">{fmt(Number(t.previous_balance))}</td>
-                    <td className="p-4 text-right text-sm font-medium">{fmt(Number(t.new_balance))}</td>
-                    <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate">{t.note ?? "—"}</td>
-                    <td className="p-4 text-right">
+                    <td className="px-4 py-3 text-right align-middle font-semibold">{fmt(Number(t.amount))} DA</td>
+                    <td className="px-4 py-3 text-right align-middle text-sm text-muted-foreground">{fmt(Number(t.previous_balance))}</td>
+                    <td className="px-4 py-3 text-right align-middle text-sm font-medium">{fmt(Number(t.new_balance))}</td>
+                    <td className="px-4 py-3 text-sm align-middle text-muted-foreground max-w-[200px] truncate">{t.note ?? "—"}</td>
+                    <td className="px-4 py-3 text-right align-middle">
                       <Link to={`/acomptes/${t.id}`}><Button variant="ghost" size="sm"><Eye className="w-4 h-4" /></Button></Link>
                     </td>
                   </tr>
@@ -493,26 +510,26 @@ export default function WorkerDetail() {
           <Link to="/absences"><Button variant="outline" size="sm">Gérer</Button></Link>
         </div>
         {absences && absences.length > 0 ? (
-          <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <div className="panel overflow-hidden overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-                  <th className="p-4 font-medium">Date</th>
-                  <th className="p-4 font-medium">Motif</th>
+                <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motif</th>
                 </tr>
               </thead>
               <tbody>
                 {absences.map((a) => (
-                  <tr key={a.id} className="border-b last:border-0">
-                    <td className="p-4 text-sm">{formatDateFR(a.absence_date)}</td>
-                    <td className="p-4 text-sm text-muted-foreground">{a.reason ?? "—"}</td>
+                  <tr key={a.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 text-sm align-middle">{formatDateFR(a.absence_date)}</td>
+                    <td className="px-4 py-3 text-sm align-middle text-muted-foreground">{a.reason ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="text-center py-6 bg-card rounded-xl border">
+          <div className="panel px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">Aucune absence enregistrée</p>
           </div>
         )}
@@ -525,32 +542,32 @@ export default function WorkerDetail() {
           <Link to="/conges"><Button variant="outline" size="sm">Gérer</Button></Link>
         </div>
         {conges && conges.length > 0 ? (
-          <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <div className="panel overflow-hidden overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-                  <th className="p-4 font-medium">Type</th>
-                  <th className="p-4 font-medium">Du</th>
-                  <th className="p-4 font-medium">Au</th>
-                  <th className="p-4 font-medium text-right">Durée</th>
-                  <th className="p-4 font-medium">Motif</th>
+                <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Du</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Au</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Durée</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motif</th>
                 </tr>
               </thead>
               <tbody>
                 {conges.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0">
-                    <td className="p-4 text-sm font-medium">{CONGE_TYPES[c.conge_type]}</td>
-                    <td className="p-4 text-sm">{formatDateFR(c.start_date)}</td>
-                    <td className="p-4 text-sm">{formatDateFR(c.end_date)}</td>
-                    <td className="p-4 text-sm text-right font-semibold">{congeDuration(c.start_date, c.end_date)} j</td>
-                    <td className="p-4 text-sm text-muted-foreground max-w-[250px] truncate">{c.reason ?? "—"}</td>
+                  <tr key={c.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 text-sm align-middle font-medium">{CONGE_TYPES[c.conge_type]}</td>
+                    <td className="px-4 py-3 text-sm align-middle">{formatDateFR(c.start_date)}</td>
+                    <td className="px-4 py-3 text-sm align-middle">{formatDateFR(c.end_date)}</td>
+                    <td className="px-4 py-3 text-right align-middle text-sm font-semibold">{congeDuration(c.start_date, c.end_date)} j</td>
+                    <td className="px-4 py-3 text-sm align-middle text-muted-foreground max-w-[250px] truncate">{c.reason ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="text-center py-6 bg-card rounded-xl border">
+          <div className="panel px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">Aucun congé enregistré</p>
           </div>
         )}
@@ -559,17 +576,17 @@ export default function WorkerDetail() {
       <div>
         <h2 className="text-lg font-semibold mb-3">Documents ({documents?.length ?? 0})</h2>
         {loadingDocs ? (
-          <p className="text-muted-foreground">Chargement...</p>
+          <ListRowsSkeleton rows={3} />
         ) : documents && documents.length > 0 ? (
-          <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+          <div className="panel overflow-hidden overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-4 text-sm font-medium text-muted-foreground">Titre</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted-foreground">Type</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted-foreground">Statut</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted-foreground">Date</th>
-                  <th className="text-right p-4 text-sm font-medium text-muted-foreground">Actions</th>
+                <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Titre</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -578,28 +595,28 @@ export default function WorkerDetail() {
                   const respOk = doc.validated_by_responsible;
                   const rhOk = doc.validated_by_rh;
                   return (
-                    <tr key={doc.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="p-4 font-medium">{doc.title}</td>
-                      <td className="p-4">
+                    <tr key={doc.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                      <td className="px-4 py-3 align-middle font-medium">{doc.title}</td>
+                      <td className="px-4 py-3 align-middle">
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
                           {DOCUMENT_TYPES[doc.document_type as keyof typeof DOCUMENT_TYPES]?.label}
                         </span>
                       </td>
-                      <td className="p-4">
+                      <td className="px-4 py-3 align-middle">
                         {bon ? (
                           respOk && rhOk ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Validé</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success"><CheckCircle className="w-3.5 h-3.5" /> Validé</span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><Clock className="w-3.5 h-3.5" /> En attente</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning"><Clock className="w-3.5 h-3.5" /> En attente</span>
                           )
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="p-4 text-sm text-muted-foreground">
+                      <td className="px-4 py-3 text-sm align-middle text-muted-foreground">
                         {formatDateFR(doc.created_at)}
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="px-4 py-3 text-right align-middle">
                         <Link to={`/documents/${doc.id}`}>
                           <Button variant="ghost" size="sm">Voir</Button>
                         </Link>
@@ -611,7 +628,7 @@ export default function WorkerDetail() {
             </table>
           </div>
         ) : (
-          <div className="text-center py-8 bg-card rounded-xl border">
+          <div className="panel px-6 py-10 text-center">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
             <p className="text-muted-foreground">Aucun document pour cet employé</p>
           </div>

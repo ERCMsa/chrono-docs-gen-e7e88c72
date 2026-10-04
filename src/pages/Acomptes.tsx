@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/PageHeader";
 import {
   Plus,
   Users,
@@ -52,9 +53,9 @@ const fmt = (n: number) =>
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const TYPE_BADGE: Record<string, string> = {
-  acompte: "bg-amber-400 text-amber-950",
-  dette: "bg-red-500 text-white",
-  reglement: "bg-emerald-500 text-white",
+  acompte: "bg-warning/15 text-warning",
+  dette: "bg-destructive/10 text-destructive",
+  reglement: "bg-success/10 text-success",
 };
 const TYPE_LABEL: Record<string, string> = {
   acompte: "ACOMPTE",
@@ -100,17 +101,13 @@ export default function Acomptes() {
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <h1 className="text-2xl md:text-3xl font-bold text-primary uppercase tracking-tight">
-          ERCM SA — Gestion des Acomptes et Dettes
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold">
-            {workers?.length ?? 0}
-          </span>{" "}
-          Employés enregistrés
-        </p>
-      </div>
+      <PageHeader
+        title="ERCM SA — Gestion des Acomptes et Dettes"
+      >
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+          {workers?.length ?? 0} Employés enregistrés
+        </span>
+      </PageHeader>
 
       <Tabs defaultValue="nouvelle" className="w-full">
         <TabsList className="w-full grid grid-cols-2 md:grid-cols-5 h-auto bg-transparent border-b rounded-none p-0 gap-0">
@@ -194,7 +191,7 @@ function NouvelleOperation({ workers }: { workers: WorkerExt[] }) {
   };
 
   return (
-    <div className="bg-muted/40 border rounded-xl p-6">
+    <div className="panel p-6">
       <h2 className="text-primary font-bold mb-5 flex items-center gap-2">
         <FileText className="w-4 h-4" /> Saisir une transaction (Individuelle)
       </h2>
@@ -252,13 +249,13 @@ function NouvelleOperation({ workers }: { workers: WorkerExt[] }) {
       </div>
 
       <div className="flex flex-wrap gap-3 mt-6">
-        <Button onClick={() => save("none")} className="bg-primary hover:bg-primary/90">
+        <Button onClick={() => save("none")}>
           <Save className="w-4 h-4 mr-2" /> Enregistrer seulement
         </Button>
-        <Button onClick={() => save("recu")} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button onClick={() => save("recu")} variant="success">
           <Receipt className="w-4 h-4 mr-2" /> Enregistrer & Reçu
         </Button>
-        <Button onClick={() => save("decharge")} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button onClick={() => save("decharge")} variant="info">
           <FileText className="w-4 h-4 mr-2" /> Enregistrer & Décharge
         </Button>
       </div>
@@ -348,14 +345,14 @@ function OperationsGroupees({
   };
 
   return (
-    <div className="bg-muted/40 border rounded-xl p-6 space-y-4">
+    <div className="panel p-6 space-y-4">
       <h2 className="text-primary font-bold flex items-center gap-2">
         <Users className="w-4 h-4" /> Traitements en Masse
       </h2>
       <p className="text-sm text-muted-foreground">Cochez les employés puis appliquez l'action.</p>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={allOn} className="bg-blue-500 hover:bg-blue-600 text-white">
+        <Button size="sm" onClick={allOn} variant="info">
           <Check className="w-3.5 h-3.5 mr-1" /> Tout cocher
         </Button>
         <Button size="sm" onClick={allOff} variant="outline">
@@ -369,17 +366,17 @@ function OperationsGroupees({
         />
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="panel overflow-hidden">
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-zinc-800 text-white">
+            <thead className="sticky top-0 border-b bg-muted/40">
               <tr>
-                <th className="p-3 text-left w-12">Sel.</th>
-                <th className="p-3 text-left">Employé</th>
-                <th className="p-3 text-right">Reste Acompte</th>
-                <th className="p-3 text-right">Solde Total</th>
-                <th className="p-3 text-right">Retenue Config.</th>
-                <th className="p-3 text-left">Configurer</th>
+                <th className="w-12 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sel.</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employé</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reste Acompte</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Solde Total</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Retenue Config.</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Configurer</th>
               </tr>
             </thead>
             <tbody>
@@ -389,15 +386,15 @@ function OperationsGroupees({
                 const solde = s.acompte + s.dette - s.reglement;
                 const ret = Number(w.monthly_retention || 0);
                 return (
-                  <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3">
+                  <tr key={w.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 align-middle">
                       <input type="checkbox" checked={selected.has(w.id)} onChange={() => toggle(w.id)} />
                     </td>
-                    <td className="p-3 font-semibold">{w.full_name}{w.matricule ? <span className="text-muted-foreground font-normal"> · #{w.matricule}</span> : null}</td>
-                    <td className="p-3 text-right font-semibold text-amber-600">{fmt(resteAc)}</td>
-                    <td className="p-3 text-right font-semibold text-red-600">{fmt(solde)}</td>
-                    <td className="p-3 text-right text-muted-foreground">{ret > 0 ? `${fmt(ret)} /mois` : "—"}</td>
-                    <td className="p-3">
+                    <td className="px-4 py-3 align-middle font-semibold">{w.full_name}{w.matricule ? <span className="text-muted-foreground font-normal"> · #{w.matricule}</span> : null}</td>
+                    <td className="px-4 py-3 align-middle text-right font-semibold text-warning">{fmt(resteAc)}</td>
+                    <td className="px-4 py-3 align-middle text-right font-semibold text-destructive">{fmt(solde)}</td>
+                    <td className="px-4 py-3 align-middle text-right text-muted-foreground">{ret > 0 ? `${fmt(ret)} /mois` : "—"}</td>
+                    <td className="px-4 py-3 align-middle">
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -406,7 +403,7 @@ function OperationsGroupees({
                           value={retentionInputs[w.id] ?? ""}
                           onChange={(e) => setRetentionInputs((p) => ({ ...p, [w.id]: e.target.value }))}
                         />
-                        <Button size="sm" className="h-8 bg-blue-500 hover:bg-blue-600 text-white" onClick={() => saveRetention(w.id)}>OK</Button>
+                        <Button size="sm" variant="info" className="h-8" onClick={() => saveRetention(w.id)}>OK</Button>
                       </div>
                     </td>
                   </tr>
@@ -417,17 +414,17 @@ function OperationsGroupees({
         </div>
       </div>
 
-      <div className="border border-amber-200 bg-amber-50 rounded-lg p-4">
+      <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
         <p className="font-semibold mb-3">Actions à appliquer :</p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Date</Label>
             <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="h-10 w-44" />
           </div>
-          <Button onClick={appliquerRetenues} disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button onClick={appliquerRetenues} disabled={busy} variant="success">
             <Check className="w-4 h-4 mr-2" /> Appliquer Retenues
           </Button>
-          <Button onClick={solderAcomptes} disabled={busy} className="bg-amber-500 hover:bg-amber-600 text-white">
+          <Button onClick={solderAcomptes} disabled={busy} variant="warning">
             <Receipt className="w-4 h-4 mr-2" /> Solder Acomptes
           </Button>
         </div>
@@ -464,7 +461,7 @@ function Historique({ txs }: { txs: (AcompteTransaction & { workers?: any })[] }
   };
 
   return (
-    <div className="bg-muted/40 border rounded-xl p-6 space-y-4">
+    <div className="panel p-6 space-y-4">
       <h2 className="text-primary font-bold flex items-center gap-2">
         <Search className="w-4 h-4" /> Filtrer l'Historique
       </h2>
@@ -500,43 +497,43 @@ function Historique({ txs }: { txs: (AcompteTransaction & { workers?: any })[] }
         <Button variant="outline" onClick={() => { setName(""); setFrom(""); setTo(""); setType("all"); }}>
           <X className="w-4 h-4 mr-2" /> Effacer Filtres
         </Button>
-        <Button onClick={() => window.print()} className="bg-blue-500 hover:bg-blue-600 text-white">
+        <Button onClick={() => window.print()} variant="info">
           <Printer className="w-4 h-4 mr-2" /> Imprimer
         </Button>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-800 text-white">
+            <thead className="border-b bg-muted/40">
               <tr>
-                <th className="p-3 text-left">Date</th>
-                <th className="p-3 text-left">Employé</th>
-                <th className="p-3 text-left">Type</th>
-                <th className="p-3 text-right">Montant (DA)</th>
-                <th className="p-3 text-left">Description</th>
-                <th className="p-3 text-right">Action</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employé</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Montant (DA)</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Aucune opération</td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">Aucune opération</td></tr>
               ) : filtered.map((t) => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="p-3">{formatDateFR(t.transaction_date)}</td>
-                  <td className="p-3 font-semibold">{t.workers?.full_name ?? "—"}</td>
-                  <td className="p-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${TYPE_BADGE[t.type] || "bg-muted"}`}>
+                <tr key={t.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                  <td className="px-4 py-3 align-middle">{formatDateFR(t.transaction_date)}</td>
+                  <td className="px-4 py-3 align-middle font-semibold">{t.workers?.full_name ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_BADGE[t.type] || "bg-muted text-muted-foreground"}`}>
                       {TYPE_LABEL[t.type] || t.type}
                     </span>
                   </td>
-                  <td className="p-3 text-right font-semibold">{fmt(Number(t.amount))}</td>
-                  <td className="p-3 text-muted-foreground max-w-md truncate">{t.note || "-"}</td>
-                  <td className="p-3 text-right whitespace-nowrap">
+                  <td className="px-4 py-3 align-middle text-right font-semibold">{fmt(Number(t.amount))}</td>
+                  <td className="px-4 py-3 align-middle text-muted-foreground max-w-md truncate">{t.note || "-"}</td>
+                  <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
                     <Link to={`/acomptes/${t.id}`}>
-                      <Button variant="ghost" size="sm" className="h-8 bg-blue-500 hover:bg-blue-600 text-white"><Eye className="w-3.5 h-3.5" /></Button>
+                      <Button variant="info" size="icon-sm"><Eye className="w-3.5 h-3.5" /></Button>
                     </Link>
-                    <Button variant="ghost" size="sm" onClick={() => del(t.id)} className="h-8 ml-1 bg-red-500 hover:bg-red-600 text-white"><Trash2 className="w-3.5 h-3.5" /></Button>
+                    <Button variant="destructive" size="icon-sm" onClick={() => del(t.id)} className="ml-1"><Trash2 className="w-3.5 h-3.5" /></Button>
                   </td>
                 </tr>
               ))}
@@ -721,45 +718,45 @@ function BilanGeneral({
       </h2>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card title="Total Acomptes" value={fmt(totals.acompte)} className="bg-amber-400 text-amber-950" />
-        <Card title="Total Dettes" value={fmt(totals.dette)} className="bg-red-500 text-white" />
-        <Card title="Total Règlements" value={fmt(totals.reglement)} className="bg-emerald-500 text-white" />
-        <Card title="Reste à Recouvrer" value={fmt(totals.reste)} className="bg-blue-500 text-white" />
+        <Card title="Total Acomptes" value={fmt(totals.acompte)} dot="bg-warning" />
+        <Card title="Total Dettes" value={fmt(totals.dette)} dot="bg-destructive" />
+        <Card title="Total Règlements" value={fmt(totals.reglement)} dot="bg-success" />
+        <Card title="Reste à Recouvrer" value={fmt(totals.reste)} dot="bg-info" />
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button onClick={exportJson} className="bg-emerald-600 hover:bg-emerald-700 text-white"><Download className="w-4 h-4 mr-2" />Exporter (JSON)</Button>
-        <Button onClick={importJson} className="bg-blue-500 hover:bg-blue-600 text-white"><Upload className="w-4 h-4 mr-2" />Importer (JSON)</Button>
-        <Button onClick={remiseAZero} className="bg-red-500 hover:bg-red-600 text-white"><RotateCcw className="w-4 h-4 mr-2" />Remise à Zéro</Button>
+        <Button onClick={exportJson} variant="success"><Download className="w-4 h-4 mr-2" />Exporter (JSON)</Button>
+        <Button onClick={importJson} variant="info"><Upload className="w-4 h-4 mr-2" />Importer (JSON)</Button>
+        <Button onClick={remiseAZero} variant="destructive"><RotateCcw className="w-4 h-4 mr-2" />Remise à Zéro</Button>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-800 text-white">
+            <thead className="border-b bg-muted/40">
               <tr>
-                <th className="p-3 text-left">Matricule</th>
-                <th className="p-3 text-left">Employé</th>
-                <th className="p-3 text-right">Total Acomptes</th>
-                <th className="p-3 text-right">Total Dettes</th>
-                <th className="p-3 text-right">Total Règlements</th>
-                <th className="p-3 text-right">Reste à Payer</th>
-                <th className="p-3 text-center">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Matricule</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employé</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Acomptes</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Dettes</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Règlements</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reste à Payer</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Statut</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const solde = r.reste <= 0;
                 return (
-                  <tr key={r.w.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3 text-muted-foreground">{r.w.matricule || "—"}</td>
-                    <td className="p-3 font-bold">{r.w.full_name}</td>
-                    <td className="p-3 text-right">{fmt(r.acompte)}</td>
-                    <td className="p-3 text-right">{fmt(r.dette)}</td>
-                    <td className="p-3 text-right text-emerald-600">{fmt(r.reglement)}</td>
-                    <td className={`p-3 text-right font-semibold ${solde ? "text-emerald-600" : "text-red-600"}`}>{fmt(Math.max(0, r.reste))}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${solde ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
+                  <tr key={r.w.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 align-middle text-muted-foreground">{r.w.matricule || "—"}</td>
+                    <td className="px-4 py-3 align-middle font-bold">{r.w.full_name}</td>
+                    <td className="px-4 py-3 align-middle text-right">{fmt(r.acompte)}</td>
+                    <td className="px-4 py-3 align-middle text-right">{fmt(r.dette)}</td>
+                    <td className="px-4 py-3 align-middle text-right text-success">{fmt(r.reglement)}</td>
+                    <td className={`px-4 py-3 align-middle text-right font-semibold ${solde ? "text-success" : "text-destructive"}`}>{fmt(Math.max(0, r.reste))}</td>
+                    <td className="px-4 py-3 align-middle text-center">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${solde ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                         {solde ? "SOLDÉ" : "NON RÉGLÉ"}
                       </span>
                     </td>
@@ -774,11 +771,14 @@ function BilanGeneral({
   );
 }
 
-function Card({ title, value, className }: { title: string; value: string; className?: string }) {
+function Card({ title, value, dot }: { title: string; value: string; dot: string }) {
   return (
-    <div className={`rounded-xl p-5 ${className}`}>
-      <p className="text-xs uppercase opacity-90 font-medium">{title}</p>
-      <p className="text-2xl md:text-3xl font-bold mt-2">{value}</p>
+    <div className="panel p-5">
+      <div className="flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
+        <p className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+      </div>
+      <p className="mt-3 text-2xl md:text-3xl font-bold tabular-nums tracking-tight">{value}</p>
     </div>
   );
 }
@@ -819,7 +819,7 @@ function GestionEmployes({ workers }: { workers: WorkerExt[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-muted/40 border rounded-xl p-6">
+      <div className="panel p-6">
         <h3 className="text-primary font-bold flex items-center gap-2 mb-4">
           <Plus className="w-4 h-4" /> Ajouter un employé
         </h3>
@@ -827,35 +827,35 @@ function GestionEmployes({ workers }: { workers: WorkerExt[] }) {
           <Input placeholder="Matricule" value={matricule} onChange={(e) => setMatricule(e.target.value)} className="h-11" />
           <Input placeholder="Nom et Prénom" value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-11" />
           <Input placeholder="Poste" value={position} onChange={(e) => setPosition(e.target.value)} className="h-11" />
-          <Button onClick={() => fullName.trim() ? add.mutate() : toast.error("Nom requis")} className="h-11 bg-primary hover:bg-primary/90">Ajouter</Button>
+          <Button onClick={() => fullName.trim() ? add.mutate() : toast.error("Nom requis")} className="h-11">Ajouter</Button>
         </div>
       </div>
 
-      <div className="bg-muted/40 border rounded-xl p-6 space-y-3">
+      <div className="panel p-6 space-y-3">
         <h3 className="text-primary font-bold flex items-center gap-2">
           <Users className="w-4 h-4" /> Liste des employés ({workers.length})
         </h3>
         <Input placeholder="Rechercher un employé..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-10" />
 
-        <div className="border rounded-lg overflow-hidden">
+        <div className="panel overflow-hidden">
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-zinc-800 text-white">
+              <thead className="sticky top-0 border-b bg-muted/40">
                 <tr>
-                  <th className="p-3 text-left">Matricule</th>
-                  <th className="p-3 text-left">Nom et Prénom</th>
-                  <th className="p-3 text-left">Poste</th>
-                  <th className="p-3 text-right">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Matricule</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nom et Prénom</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Poste</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map((w) => (
-                  <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3 text-muted-foreground">{w.matricule || "—"}</td>
-                    <td className="p-3 font-bold">{w.full_name}</td>
-                    <td className="p-3 text-muted-foreground uppercase">{w.position || "—"}</td>
-                    <td className="p-3 text-right">
-                      <Button size="sm" onClick={() => { if (confirm(`Supprimer ${w.full_name} ?`)) del.mutate(w.id); }} className="h-8 bg-red-500 hover:bg-red-600 text-white">X</Button>
+                  <tr key={w.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 align-middle text-muted-foreground">{w.matricule || "—"}</td>
+                    <td className="px-4 py-3 align-middle font-bold">{w.full_name}</td>
+                    <td className="px-4 py-3 align-middle text-muted-foreground uppercase">{w.position || "—"}</td>
+                    <td className="px-4 py-3 align-middle text-right">
+                      <Button size="sm" variant="destructive" className="h-8" onClick={() => { if (confirm(`Supprimer ${w.full_name} ?`)) del.mutate(w.id); }}>X</Button>
                     </td>
                   </tr>
                 ))}

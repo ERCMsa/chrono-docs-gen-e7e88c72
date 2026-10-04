@@ -9,16 +9,16 @@ import {
 
 const BADGE_STYLES: Record<ContractExpiry, { wrap: string; dot: string }> = {
   ok: {
-    wrap: "border-green-200 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-300",
-    dot: "bg-green-500",
+    wrap: "border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/10 dark:text-success",
+    dot: "bg-success",
   },
   expiring: {
-    wrap: "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300",
-    dot: "bg-orange-500 animate-pulse-soft",
+    wrap: "border-warning/25 bg-warning/15 text-warning dark:border-warning/30 dark:bg-warning/15 dark:text-warning",
+    dot: "bg-warning animate-pulse-soft",
   },
   expired: {
-    wrap: "border-red-300 bg-red-50 text-red-700 animate-pulse-alert dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300",
-    dot: "bg-red-500",
+    wrap: "border-destructive/20 bg-destructive/10 text-destructive animate-pulse-alert dark:border-destructive/30 dark:bg-destructive/10 dark:text-destructive",
+    dot: "bg-destructive",
   },
 };
 

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/PageHeader";
 import { toast } from "sonner";
 import { Plus, KeyRound, Loader2 } from "lucide-react";
 
@@ -113,15 +114,14 @@ export default function AdminPermissions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Gestion des permissions</h1>
-          <p className="text-sm text-muted-foreground">Utilisateurs, rôles et permissions par module</p>
-        </div>
+      <PageHeader
+        title="Gestion des permissions"
+        description="Utilisateurs, rôles et permissions par module"
+      >
         <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4 mr-2" />Nouvel utilisateur</Button>
-      </div>
+      </PageHeader>
 
-      <div className="bg-card border rounded-xl overflow-hidden">
+      <div className="panel overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

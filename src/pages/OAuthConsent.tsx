@@ -80,7 +80,7 @@ export default function OAuthConsent() {
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-        <div className="w-full max-w-md bg-card border rounded-2xl shadow-lg p-8 text-center">
+        <div className="w-full max-w-md bg-card border rounded-2xl shadow-dialog p-8 text-center">
           <h1 className="text-lg font-bold text-destructive mb-2">
             Autorisation impossible
           </h1>
@@ -107,7 +107,7 @@ export default function OAuthConsent() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md bg-card border rounded-2xl shadow-lg p-8">
+      <div className="w-full max-w-md bg-card border rounded-2xl shadow-dialog p-8">
         <div className="flex flex-col items-center mb-6">
           <img src={logoErcm} alt="ERCM" className="h-12 mb-3" />
           <h1 className="text-xl font-bold text-center">

@@ -21,6 +21,9 @@ import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import CongesImportExcel from "@/components/CongesImportExcel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { ListRowsSkeleton } from "@/components/Skeletons";
 
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
@@ -242,11 +245,7 @@ export default function Conges() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Congés</h1>
-          <p className="text-muted-foreground mt-1">Gestion des demandes de congé</p>
-        </div>
+      <PageHeader title="Congés" description="Gestion des demandes de congé">
         <div className="flex items-center gap-2">
         <CongesImportExcel
           workers={workers}
@@ -314,7 +313,7 @@ export default function Conges() {
           </DialogContent>
         </Dialog>
         </div>
-      </div>
+      </PageHeader>
 
       <Tabs defaultValue="liste" className="space-y-6">
       <TabsList>
@@ -324,10 +323,10 @@ export default function Conges() {
 
       <TabsContent value="liste" className="space-y-6">
       {/* Filters */}
-      <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
-        <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
+      <div className="panel p-4 flex flex-wrap items-end gap-3">
+        <Filter className="w-4 h-4 text-muted-foreground mb-2.5 shrink-0" />
         <div className="w-[200px]">
-          <Label className="text-xs text-muted-foreground mb-1 block">Employé</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé</Label>
           <WorkerAutocomplete
             workers={workers}
             value={filterWorker}
@@ -338,7 +337,7 @@ export default function Conges() {
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Type</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Type</Label>
           <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
             <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -348,7 +347,7 @@ export default function Conges() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Année</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Année</Label>
           <Select value={filterYear} onValueChange={setFilterYear}>
             <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -357,7 +356,7 @@ export default function Conges() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Mois</Label>
           <Select value={filterMonth} onValueChange={setFilterMonth}>
             <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -373,10 +372,19 @@ export default function Conges() {
       </div>
 
       {/* List */}
-      <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+      {isLoading ? (
+        <ListRowsSkeleton rows={6} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={CalendarRange}
+          title="Aucun congé"
+          description="Aucun congé enregistré pour la période et les filtres sélectionnés."
+        />
+      ) : (
+      <div className="panel overflow-hidden overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
+            <tr className="border-b bg-muted/40">
               <SortHeader label="Employé" field="worker" sort={sort} setSort={setSort} />
               <SortHeader label="Type" field="type" sort={sort} setSort={setSort} />
               <SortHeader label="Du" field="start_date" sort={sort} setSort={setSort} />
@@ -388,49 +396,41 @@ export default function Conges() {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Chargement...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} className="p-10 text-center">
-                <CalendarRange className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-muted-foreground">Aucun congé</p>
-              </td></tr>
-            ) : (
-              filtered.map((c) => {
+              {filtered.map((c) => {
                 const dur = congeDuration(c.start_date, c.end_date);
                 return (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-4 font-medium">
+                  <tr key={c.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 align-middle font-medium">
                       <Link to={`/workers/${c.worker_id}`} className="hover:underline">{c.workers?.full_name ?? "—"}</Link>
                     </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center text-xs font-medium px-2 py-1 rounded-full ${TYPE_COLORS[c.conge_type]}`}>
+                    <td className="px-4 py-3 align-middle">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[c.conge_type]}`}>
                         {CONGE_TYPES[c.conge_type]}
                       </span>
                     </td>
-                    <td className="p-4 text-sm">{formatDateFR(c.start_date)}</td>
-                    <td className="p-4 text-sm">{formatDateFR(c.end_date)}</td>
-                    <td className="p-4 text-right font-semibold">{dur} j</td>
-                    <td className="p-4 text-sm text-muted-foreground max-w-[250px] truncate">{c.reason ?? "—"}</td>
-                    <td className="p-4 text-right whitespace-nowrap">
+                    <td className="px-4 py-3 align-middle text-sm">{formatDateFR(c.start_date)}</td>
+                    <td className="px-4 py-3 align-middle text-sm">{formatDateFR(c.end_date)}</td>
+                    <td className="px-4 py-3 align-middle text-right font-semibold">{dur} j</td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[250px] truncate">{c.reason ?? "—"}</td>
+                    <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
                       <Button variant="ghost" size="sm" title="Titre de congé (PDF)" onClick={() => generateTitreCongePdf(c)}><FileText className="w-4 h-4 text-primary" /></Button>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer ce congé ?")) delMut.mutate(c.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </td>
                   </tr>
                 );
-              })
-            )}
+              })}
           </tbody>
         </table>
       </div>
+      )}
       </TabsContent>
 
       <TabsContent value="droit" className="space-y-6">
-        <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
-          <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
+        <div className="panel p-4 flex flex-wrap items-end gap-3">
+          <Filter className="w-4 h-4 text-muted-foreground mb-2.5 shrink-0" />
           <div className="w-[260px]">
-            <Label className="text-xs text-muted-foreground mb-1 block">Employé</Label>
+            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -445,10 +445,17 @@ export default function Conges() {
             Total : <span className="font-semibold text-foreground">{droitRows.length}</span>
           </div>
         </div>
-        <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
+        {droitRows.length === 0 ? (
+          <EmptyState
+            icon={CalendarRange}
+            title="Aucune donnée"
+            description="Aucun employé à afficher pour la période du droit de congé."
+          />
+        ) : (
+        <div className="panel overflow-hidden overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
+              <tr className="border-b bg-muted/40">
                 <SortHeader label="MATRICULE" field="matricule" sort={droitSort} setSort={setDroitSort} />
                 <SortHeader label="Employée" field="name" sort={droitSort} setSort={setDroitSort} />
                 <SortHeader label="Month Worked" field="monthWorked" sort={droitSort} setSort={setDroitSort} align="right" />
@@ -460,29 +467,23 @@ export default function Conges() {
             </thead>
 
             <tbody>
-              {droitRows.length === 0 ? (
-                <tr><td colSpan={7} className="p-10 text-center">
-                  <CalendarRange className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-muted-foreground">Aucune donnée</p>
-                </td></tr>
-              ) : (
-                droitRows.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-4 text-sm">{r.matricule}</td>
-                    <td className="p-4 font-medium">
+              {droitRows.map((r) => (
+                  <tr key={r.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3 align-middle text-sm">{r.matricule}</td>
+                    <td className="px-4 py-3 align-middle font-medium">
                       <Link to={`/workers/${r.id}`} className="hover:underline">{r.name}</Link>
                     </td>
-                    <td className="p-4 text-right text-sm">{r.monthWorked}</td>
-                    <td className="p-4 text-right text-sm">{r.congeFait}</td>
-                    <td className="p-4 text-right font-semibold">{r.congeDroit.toFixed(1)}</td>
-                    <td className={`p-4 text-right font-semibold ${r.resteConge < 0 ? "text-destructive" : ""}`}>{r.resteConge.toFixed(1)}</td>
-                    <td className="p-4 text-sm">{r.enterDate ? formatDateFR(r.enterDate) : "—"}</td>
+                    <td className="px-4 py-3 align-middle text-right text-sm">{r.monthWorked}</td>
+                    <td className="px-4 py-3 align-middle text-right text-sm">{r.congeFait}</td>
+                    <td className="px-4 py-3 align-middle text-right font-semibold">{r.congeDroit.toFixed(1)}</td>
+                    <td className={`px-4 py-3 align-middle text-right font-semibold ${r.resteConge < 0 ? "text-destructive" : ""}`}>{r.resteConge.toFixed(1)}</td>
+                    <td className="px-4 py-3 align-middle text-sm">{r.enterDate ? formatDateFR(r.enterDate) : "—"}</td>
                   </tr>
-                ))
-              )}
+                ))}
             </tbody>
           </table>
         </div>
+        )}
       </TabsContent>
       </Tabs>
     </div>

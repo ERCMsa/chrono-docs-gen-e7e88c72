@@ -17,6 +17,9 @@ import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import { OBSERVATION_LIST_CHOICE, OBSERVATION_TYPE_LABEL, OBSERVATION_TYPE_STYLE, findObservation } from "@/data/observations";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { ListRowsSkeleton } from "@/components/Skeletons";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -135,11 +138,7 @@ export default function Absences() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Absences</h1>
-          <p className="text-muted-foreground mt-1">Gestion des absences journalières</p>
-        </div>
+      <PageHeader title="Absences" description="Gestion des absences journalières">
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nouvelle absence</Button>
@@ -235,13 +234,13 @@ export default function Absences() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </PageHeader>
 
       {/* Filters */}
-      <div className="bg-card border rounded-xl p-4 flex flex-wrap items-end gap-3">
-        <Filter className="w-4 h-4 text-muted-foreground mb-2.5" />
+      <div className="panel p-4 flex flex-wrap items-end gap-3">
+        <Filter className="w-4 h-4 text-muted-foreground mb-2.5 shrink-0" />
         <div className="w-[220px]">
-          <Label className="text-xs text-muted-foreground mb-1 block">Employé</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé</Label>
           <WorkerAutocomplete
             workers={workers}
             value={filterWorker}
@@ -252,7 +251,7 @@ export default function Absences() {
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Année</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Année</Label>
           <Select value={filterYear} onValueChange={setFilterYear}>
             <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -261,7 +260,7 @@ export default function Absences() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Mois</Label>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Mois</Label>
           <Select value={filterMonth} onValueChange={setFilterMonth}>
             <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -277,44 +276,45 @@ export default function Absences() {
       </div>
 
       {/* List */}
-      <div className="bg-card border rounded-xl overflow-hidden overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left text-sm text-muted-foreground">
-              <th className="p-4 font-medium">Date</th>
-              <th className="p-4 font-medium">Employé</th>
-              <th className="p-4 font-medium">Département</th>
-              <th className="p-4 font-medium">Motif</th>
-              <th className="p-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Chargement...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="p-10 text-center">
-                <CalendarX className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-muted-foreground">Aucune absence</p>
-              </td></tr>
-            ) : (
-              filtered.map((a) => (
-                <tr key={a.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="p-4 text-sm">{formatDateFR(a.absence_date)}</td>
-                  <td className="p-4 font-medium">
+      {isLoading ? (
+        <ListRowsSkeleton rows={6} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={CalendarX}
+          title="Aucune absence"
+          description="Aucune absence enregistrée pour la période sélectionnée. Utilisez le bouton « Nouvelle absence » pour en ajouter."
+        />
+      ) : (
+        <div className="panel overflow-hidden overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employé</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Département</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motif</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((a) => (
+                <tr key={a.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                  <td className="px-4 py-3 align-middle text-sm">{formatDateFR(a.absence_date)}</td>
+                  <td className="px-4 py-3 align-middle font-medium">
                     <Link to={`/workers/${a.worker_id}`} className="hover:underline">{a.workers?.full_name ?? "—"}</Link>
                   </td>
-                  <td className="p-4 text-sm text-muted-foreground">{a.workers?.department ?? "—"}</td>
-                  <td className="p-4 text-sm text-muted-foreground max-w-[300px] truncate">{a.reason ?? "—"}</td>
-                  <td className="p-4 text-right whitespace-nowrap">
+                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">{a.workers?.department ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[300px] truncate">{a.reason ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer cette absence ?")) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

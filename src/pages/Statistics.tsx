@@ -5,14 +5,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from "recharts";
 import { format, parseISO, startOfMonth, startOfYear, startOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { BarChart3, PieChart as PieChartIcon } from "lucide-react";
 
 type Period = "daily" | "monthly" | "yearly";
 
-const COLORS = ["hsl(220,70%,50%)", "hsl(40,90%,50%)", "hsl(150,60%,40%)", "hsl(0,70%,50%)"];
+const CHART_COLORS = [
+  "hsl(357 79% 45%)",
+  "hsl(214 72% 46%)",
+  "hsl(151 55% 38%)",
+  "hsl(36 92% 45%)",
+];
+
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 text-xs shadow-popup">
+      <p className="mb-1 font-semibold text-foreground">{label}</p>
+      <div className="space-y-0.5">
+        {payload.map((entry: any) => (
+          <p key={entry.dataKey ?? entry.name} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || entry.payload?.fill }} />
+            {entry.name}
+            <span className="ml-auto pl-3 font-semibold text-foreground tabular-nums">{entry.value}</span>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const axisTick = { fill: "hsl(218 12% 45%)", fontSize: 12 };
 
 export default function Statistics() {
   const [period, setPeriod] = useState<Period>("monthly");
-  const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
+  const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
 
   const docs = documents ?? [];
 
@@ -21,6 +49,7 @@ export default function Statistics() {
     name: label,
     value: docs.filter((d) => d.document_type === key).length,
   }));
+  const total = typeCounts.reduce((sum, t) => sum + t.value, 0);
 
   // Bar chart data grouped by period
   const groupKey = (dateStr: string) => {
@@ -41,15 +70,16 @@ export default function Statistics() {
     .map(([period, counts]) => ({ period, ...counts }))
     .sort((a, b) => a.period.localeCompare(b.period));
 
+  const CHART_BARS = Object.entries(DOCUMENT_TYPES);
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Statistiques</h1>
-          <p className="text-muted-foreground mt-1">Analyse de la production documentaire</p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Statistiques"
+        description="Analyse de la production documentaire"
+      >
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[170px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -58,56 +88,77 @@ export default function Statistics() {
             <SelectItem value="yearly">Annuel</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </PageHeader>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {typeCounts.map((t, i) => (
-          <div key={t.name} className="bg-card border rounded-xl p-5 text-center">
-            <p className="text-3xl font-bold" style={{ color: COLORS[i] }}>{t.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.name}</p>
+          <div key={t.name} className="panel p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-[13px] font-medium text-muted-foreground">{t.name}</p>
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: CHART_COLORS[i] }}
+              />
+            </div>
+            <p className="mt-2 text-[28px] font-bold leading-none tracking-tight tabular-nums">{t.value}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {total > 0 ? `${Math.round((t.value / total) * 100)}% du total` : "Aucun document"}
+            </p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Bar chart */}
-        <div className="lg:col-span-2 bg-card border rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Documents par période</h2>
-          {barData.length > 0 ? (
+        <div className="panel p-6 lg:col-span-2">
+          <h2 className="mb-1 text-[15px] font-semibold tracking-tight">Documents par période</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {period === "daily" ? "Par jour" : period === "monthly" ? "Par mois" : "Par année"}
+          </p>
+          {isLoading ? (
+            <div className="flex h-[350px] items-center justify-center">
+              <div className="h-4 w-40 animate-pulse rounded bg-muted/60" />
+            </div>
+          ) : barData.length > 0 ? (
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="period" fontSize={12} />
-                <YAxis allowDecimals={false} fontSize={12} />
-                <Tooltip />
-                <Legend />
-                {Object.entries(DOCUMENT_TYPES).map(([key, { label }], i) => (
-                  <Bar key={key} dataKey={key} name={label} fill={COLORS[i]} radius={[4, 4, 0, 0]} />
+              <BarChart data={barData} barCategoryGap="18%">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="period" tick={axisTick} tickLine={false} axisLine={{ stroke: "hsl(var(--border))" }} />
+                <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} width={34} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted) / 0.45)" }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                {CHART_BARS.map(([key, { label }], i) => (
+                  <Bar key={key} dataKey={key} name={label} fill={CHART_COLORS[i]} radius={[4, 4, 0, 0]} maxBarSize={42} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-muted-foreground text-center py-12">Aucune donnée</p>
+            <EmptyState icon={BarChart3} title="Aucune donnée" description="Aucun document généré sur cette période." className="h-[350px] py-0" />
           )}
         </div>
 
         {/* Pie chart */}
-        <div className="bg-card border rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Répartition par type</h2>
-          {docs.length > 0 ? (
+        <div className="panel p-6">
+          <h2 className="mb-1 text-[15px] font-semibold tracking-tight">Répartition par type</h2>
+          <p className="mb-4 text-xs text-muted-foreground">Part de chaque type de document</p>
+          {isLoading ? (
+            <div className="flex h-[350px] items-center justify-center">
+              <div className="h-4 w-40 animate-pulse rounded bg-muted/60" />
+            </div>
+          ) : docs.length > 0 ? (
             <ResponsiveContainer width="100%" height={350}>
               <PieChart>
-                <Pie data={typeCounts} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                <Pie data={typeCounts} cx="50%" cy="50%" innerRadius={55} outerRadius={95} dataKey="value" paddingAngle={3} strokeWidth={0}>
                   {typeCounts.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i]} />
+                    <Cell key={i} fill={CHART_COLORS[i]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-muted-foreground text-center py-12">Aucune donnée</p>
+            <EmptyState icon={PieChartIcon} title="Aucune donnée" description="Aucun document généré pour le moment." className="h-[350px] py-0" />
           )}
         </div>
       </div>

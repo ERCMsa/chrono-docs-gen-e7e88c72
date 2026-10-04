@@ -56,8 +56,25 @@ export default function DocumentView() {
     onError: () => toast.error("Erreur de validation"),
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Chargement...</p>;
-  if (!doc) return <p className="text-destructive">Document introuvable</p>;
+  if (isLoading)
+    return (
+      <div className="panel space-y-4 p-6">
+        <div className="h-6 w-64 animate-pulse rounded bg-muted/60" />
+        <div className="h-4 w-40 animate-pulse rounded bg-muted/50" />
+        <div className="mt-6 h-[420px] animate-pulse rounded-lg bg-muted/40" />
+      </div>
+    );
+  if (!doc)
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+        <p className="text-sm font-medium text-destructive">Document introuvable</p>
+        <Link to="/documents" className="mt-3">
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />Retour aux documents
+          </Button>
+        </Link>
+      </div>
+    );
 
   const content = doc.content as Record<string, Json>;
   const docType = doc.document_type as keyof typeof DOCUMENT_TYPES;
@@ -82,15 +99,15 @@ export default function DocumentView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link to="/documents"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-2">
+          <Link to="/documents" className="mt-0.5"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
           <div>
-            <h1 className="text-2xl font-bold">{doc.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{doc.title}</h1>
             <p className="text-sm text-muted-foreground">Créé le {formatDateFR(doc.created_at)}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to={`/generate/${docType}/${doc.id}`}>
             <Button variant="outline" size="sm">
               <Pencil className="w-4 h-4 mr-2" />Modifier
@@ -107,22 +124,22 @@ export default function DocumentView() {
 
       {/* Validation panel for bon_sortie */}
       {isBon && (
-        <div className="bg-card border rounded-xl p-5 space-y-4">
-          <h3 className="font-semibold flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /> Validation du document</h3>
+        <div className="panel space-y-4 p-5">
+          <h3 className="flex items-center gap-2 font-semibold tracking-tight"><Shield className="h-4 w-4 text-primary" /> Validation du document</h3>
 
           {!canValidateResponsible && !canValidateRH && (
-            <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg p-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm text-warning">
+              <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Votre rôle ({userRole || "—"}) ne permet pas de valider ce document.</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Chef de service validation */}
-            <div className={`border rounded-lg p-4 ${isValidatedResp ? "border-green-500 bg-green-50" : "border-muted"}`}>
+            <div className={`rounded-lg border p-4 ${isValidatedResp ? "border-success/40 bg-success/5" : "border-border"}`}>
               <p className="font-medium text-sm mb-2">Chef de Service</p>
               {isValidatedResp ? (
-                <div className="flex items-center gap-2 text-green-600">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-sm">Validé {doc.responsible_validated_at ? `le ${formatDateFR(doc.responsible_validated_at)}` : ""}</span>
                 </div>
@@ -146,10 +163,10 @@ export default function DocumentView() {
             </div>
 
             {/* RH validation */}
-            <div className={`border rounded-lg p-4 ${isValidatedRh ? "border-green-500 bg-green-50" : "border-muted"}`}>
+            <div className={`rounded-lg border p-4 ${isValidatedRh ? "border-success/40 bg-success/5" : "border-border"}`}>
               <p className="font-medium text-sm mb-2">RH</p>
               {isValidatedRh ? (
-                <div className="flex items-center gap-2 text-green-600">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-sm">Validé {doc.rh_validated_at ? `le ${formatDateFR(doc.rh_validated_at)}` : ""}</span>
                 </div>

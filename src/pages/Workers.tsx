@@ -13,6 +13,10 @@ import { Plus, Users, Search, Shield, Upload, Pencil, AlertTriangle, XCircle, Bu
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import ImportWorkersDialog from "@/components/ImportWorkersDialog";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { ListRowsSkeleton } from "@/components/Skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR } from "@/lib/contract-utils";
 import { DEPARTMENTS } from "@/lib/departments";
 import { useAuth } from "@/contexts/AuthContext";
@@ -178,7 +182,7 @@ export default function Workers() {
     const active = sortKey === column;
     const Icon = !active ? ArrowUpDown : sortDirection === "asc" ? ArrowUp : ArrowDown;
     return (
-      <th className={`px-4 py-3 font-medium ${className}`} aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground ${className}`} aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
         <button type="button" onClick={() => toggleSort(column)} className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
           {children} <Icon className="h-3.5 w-3.5" />
         </button>
@@ -188,28 +192,22 @@ export default function Workers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold tracking-tight">Employés</h1>
-            {!isGlobal && role && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                <Building2 className="w-3.5 h-3.5" /> Département : {role}
-              </span>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-1">
-            {isGlobal ? "Gérez vos employés" : "Employés de votre département"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" />Importer Excel
-          </Button>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="w-4 h-4 mr-2" />Ajouter</Button>
-            </DialogTrigger>
+      <PageHeader
+        title="Employés"
+        description={isGlobal ? "Gérez vos employés" : "Employés de votre département"}
+      >
+        {!isGlobal && role && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" /> Département : {role}
+          </span>
+        )}
+        <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <Upload className="w-4 h-4 mr-2" />Importer Excel
+        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" />Ajouter</Button>
+          </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl">Nouvel employé</DialogTitle>
@@ -348,8 +346,7 @@ export default function Workers() {
             </form>
           </DialogContent>
         </Dialog>
-        </div>
-      </div>
+      </PageHeader>
 
       <ImportWorkersDialog open={importOpen} onOpenChange={setImportOpen} />
 
@@ -374,9 +371,9 @@ export default function Workers() {
       </div>
 
       {/* Advanced filters */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
+      <div className="flex flex-wrap items-end gap-3 panel p-4">
         <div className="w-40 space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Fonction</Label>
+          <Label className="field-label">Fonction</Label>
           <Select value={positionFilter} onValueChange={setPositionFilter}>
             <SelectTrigger className="h-10"><SelectValue placeholder="Toutes" /></SelectTrigger>
             <SelectContent>
@@ -387,7 +384,7 @@ export default function Workers() {
         </div>
 
         <div className="w-44 space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Département</Label>
+          <Label className="field-label">Département</Label>
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
             <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
             <SelectContent>
@@ -398,7 +395,7 @@ export default function Workers() {
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Date d'embauche</Label>
+          <Label className="field-label">Date d'embauche</Label>
           <div className="flex items-center gap-2">
             <DateInput value={hireFrom} onChange={(e) => setHireFrom(e.target.value)} placeholder="Du jj/mm/aaaa" className="w-32 h-10" />
             <span className="text-muted-foreground">—</span>
@@ -407,7 +404,7 @@ export default function Workers() {
         </div>
 
         <div className="w-36 space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Sexe</Label>
+          <Label className="field-label">Sexe</Label>
           <Select value={sexeFilter} onValueChange={setSexeFilter}>
             <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
             <SelectContent>
@@ -419,7 +416,7 @@ export default function Workers() {
         </div>
 
         <div className="w-44 space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">Contrat</Label>
+          <Label className="field-label">Contrat</Label>
           <Select value={contractFilter} onValueChange={(v) => setContractFilter(v as "all" | "active" | "none")}>
             <SelectTrigger className="h-10"><SelectValue placeholder="Tous" /></SelectTrigger>
             <SelectContent>
@@ -438,7 +435,28 @@ export default function Workers() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Chargement...</p>
+        view === "list" ? (
+          <ListRowsSkeleton rows={6} />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="panel space-y-4 p-5">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-28" />
+                <div className="flex items-center justify-between gap-3 border-t pt-4">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : filtered && filtered.length > 0 ? (
         <Tabs value={view} onValueChange={setView} className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -458,10 +476,9 @@ export default function Workers() {
             const resignedAt = (w as any).date_demission;
             return (
               <Link key={w.id} to={`/workers/${w.id}`} className="block group">
-                <div className="h-full rounded-xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                <div className="h-full panel p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
                   <div className="flex items-start gap-3">
-                    <div className="relative flex h-11 w-11 sh
-rink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-primary">
+                    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-primary">
                       {initials(w.full_name)}                      {w.is_department_head && (
                         <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5">
                           <Shield className="w-3 h-3" />
@@ -475,8 +492,8 @@ rink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-p
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {w.matricule && <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">#{w.matricule}</span>}
-                    <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{w.department || "Sans département"}</span>
+                    {w.matricule && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">#{w.matricule}</span>}
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{w.department || "Sans département"}</span>
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4">
@@ -512,37 +529,44 @@ rink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-p
           </TabsContent>
 
           <TabsContent value="list" className="mt-0">
-            <div className="overflow-x-auto rounded-xl border bg-card">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="panel overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-sm">
+                <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
-                    <SortHeader column="full_name" className="px-5">Employé</SortHeader>
+                    <SortHeader column="full_name">Employé</SortHeader>
                     <SortHeader column="matricule">Matricule</SortHeader>
                     <SortHeader column="position">Fonction</SortHeader>
                     <SortHeader column="department">Département</SortHeader>
                     <SortHeader column="status">Statut</SortHeader>
-                    <th className="px-5 py-3 text-right font-medium">Action</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody>
                   {sortedWorkers.map((w) => {
                     const hasContract = contractWorkerIds?.has(w.id) ?? false;
                     const resignedAt = (w as any).date_demission;
                     return (
-                      <tr key={w.id} className="transition-colors hover:bg-muted/30">
-                        <td className="px-5 py-3">
+                      <tr key={w.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
+                        <td className="px-4 py-3 align-middle">
                           <Link to={`/workers/${w.id}`} className="flex items-center gap-3 font-medium hover:text-primary">
                             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">{initials(w.full_name)}</span>
                             <span>{w.full_name}</span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{w.matricule || "—"}</td>
-                        <td className="px-4 py-3">{w.position || "—"}</td>
-                        <td className="px-4 py-3">{w.department || "—"}</td>
-                        <td className="px-4 py-3">
-                          {resignedAt ? <span className="text-xs text-muted-foreground">Démission</span> : hasContract ? <span className="text-xs font-medium text-green-700 dark:text-green-300">Contrat actif</span> : <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Sans contrat</span>}
+                        <td className="px-4 py-3 align-middle text-muted-foreground">{w.matricule || "—"}</td>
+                        <td className="px-4 py-3 align-middle">{w.position || "—"}</td>
+                        <td className="px-4 py-3 align-middle">{w.department || "—"}</td>
+                        <td className="px-4 py-3 align-middle">
+                          {resignedAt ? (
+                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Démission</span>
+                          ) : hasContract ? (
+                            <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">Contrat actif</span>
+                          ) : (
+                            <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">Sans contrat</span>
+                          )}
                         </td>
-                        <td className="px-5 py-3 text-right">
+                        <td className="px-4 py-3 text-right align-middle">
                           <Button variant="ghost" size="sm" onClick={() => navigate(`/workers/${w.id}?edit=1`)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
                         </td>
                       </tr>
@@ -550,16 +574,25 @@ rink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-p
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
       ) : (
-        <div className="text-center py-12 bg-card rounded-xl border">
-          <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">
-            {search ? "Aucun employé trouvé" : "Aucun employé. Ajoutez votre premier employé."}
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title={search ? "Aucun employé trouvé" : "Aucun employé"}
+          description={
+            search
+              ? "Aucun employé ne correspond à votre recherche."
+              : "Créez votre premier employé ou ajustez la recherche."
+          }
+          action={
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />Ajouter un employé
+            </Button>
+          }
+        />
       )}
     </div>
   );
