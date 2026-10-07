@@ -13,6 +13,7 @@ import { ListRowsSkeleton } from "@/components/Skeletons";
 import ContractsImportExport from "@/components/ContractsImportExport";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
+import RenewContractButton from "@/components/RenewContractButton";
 import { getContractExpiry, type ExpiryFilter } from "@/lib/contract-utils";
 
 export default function Documents() {
@@ -124,7 +125,7 @@ export default function Documents() {
             return (
               <div
                 key={doc.id}
-                className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5 ${rowTint}`}
+                className={`flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:flex-nowrap sm:px-5 ${rowTint}`}
               >
                 <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
                   <FileText className="h-4 w-4" />
@@ -155,6 +156,14 @@ export default function Documents() {
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </div>
+                {/* Renouvellement proposé sur les contrats expirés */}
+                {contractExpiry?.status === "expired" && (doc as any).worker_id && (
+                  <RenewContractButton
+                    workerId={(doc as any).worker_id}
+                    workerName={(doc as any).workers?.full_name ?? null}
+                    contract={doc as any}
+                  />
+                )}
                 <div className="flex shrink-0 items-center gap-1">
                   <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
                     <Button variant="ghost" size="icon">

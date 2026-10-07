@@ -2,9 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorker, getDocumentsByWorker, updateWorker, deleteWorker, getAcomptes, getAbsences, getConges, congeDuration, CONGE_TYPES, DOCUMENT_TYPES, createDocumentWithReference } from "@/lib/supabase-helpers";
-import { computeContractEnd } from "@/lib/contract-helpers";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getWorker, getDocumentsByWorker, updateWorker, deleteWorker, getAcomptes, getAbsences, getConges, congeDuration, CONGE_TYPES, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, RefreshCw, AlertTriangle, XCircle } from "lucide-react";
+import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, AlertTriangle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
+import RenewContractButton from "@/components/RenewContractButton";
 import { ListRowsSkeleton } from "@/components/Skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR, durationLabel } from "@/lib/contract-utils";
@@ -30,8 +29,6 @@ export default function WorkerDetail() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [renewOpen, setRenewOpen] = useState(false);
-  const [renewEndDate, setRenewEndDate] = useState<string>("");
   const { role } = useAuth();
   const canManageContracts = role === "ADMIN" || role === "RH";
 
@@ -135,49 +132,6 @@ export default function WorkerDetail() {
 
   // Dernier contrat de l'employé (documents triés par created_at desc)
   const latestContract = (documents ?? []).find((d: any) => d.document_type === "contract");
-  const latestEnd = (latestContract?.content as any)?.date_fin as string | undefined;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  // Renouvellement possible uniquement si le dernier contrat est expiré
-  const isExpired = !!latestEnd && latestEnd < todayStr;
-  const dayAfter = (d: string) => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); };
-  const renewStart = latestEnd ? dayAfter(latestEnd) : todayStr;
-  const prevMois = parseInt((latestContract?.content as any)?.duree_mois ?? "", 10);
-  const autoRenewEnd = prevMois ? computeContractEnd(renewStart, prevMois) : "";
-
-  const renewMutation = useMutation({
-    mutationFn: async () => {
-      const end = autoRenewEnd || renewEndDate;
-      if (!end) throw new Error("Date de fin requise");
-      const prevContent: Record<string, any> = { ...((latestContract?.content as any) ?? {}) };
-      delete prevContent.reference;
-      delete prevContent.num_contrat;
-      delete prevContent.avenant;
-      const content = { ...prevContent, date_debut: renewStart, date_fin: end };
-      const doc = await createDocumentWithReference({
-        worker_id: id!,
-        document_type: "contract",
-        title: `Contrat de travail - ${worker?.full_name}`,
-        content,
-      });
-      await updateWorker(id!, {
-        date_debut_contrat: renewStart,
-        date_fin_contrat: end,
-        duree_contrat: prevMois ? String(prevMois) : null,
-      } as any);
-      return doc;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worker", id] });
-      queryClient.invalidateQueries({ queryKey: ["workers"] });
-      queryClient.invalidateQueries({ queryKey: ["worker-documents", id] });
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
-      setRenewOpen(false);
-      setRenewEndDate("");
-      toast.success("Contrat renouvelé");
-    },
-    onError: () => toast.error("Erreur lors du renouvellement"),
-  });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteWorker(id!),
@@ -238,18 +192,13 @@ export default function WorkerDetail() {
         )}
         <Link to="/workers"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" />Retour</Button></Link>
         {canManageContracts && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="outline" disabled={!isExpired || renewMutation.isPending} onClick={() => setRenewOpen(true)}>
-                    <RefreshCw className="w-4 h-4 mr-2" />Renouveler le contrat
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!isExpired && <TooltipContent>Le contrat actuel est encore actif</TooltipContent>}
-            </Tooltip>
-          </TooltipProvider>
+          <RenewContractButton
+            workerId={id!}
+            workerName={worker?.full_name}
+            contract={latestContract}
+            variant="outline"
+            size="default"
+          />
         )}
         <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Supprimer l'employé</Button>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -399,42 +348,6 @@ export default function WorkerDetail() {
           </DialogContent>
         </Dialog>
       </PageHeader>
-
-      {/* Renew Contract Dialog */}
-      <Dialog open={renewOpen} onOpenChange={setRenewOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>Renouveler le contrat</DialogTitle>
-            <DialogDescription>
-              Un nouveau contrat sera créé pour {worker?.full_name} en copiant toutes les informations du contrat précédent. L'ancien contrat est conservé.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm">
-              Début : <span className="font-semibold">{formatDateFR(renewStart)}</span>
-              {autoRenewEnd && (
-                <>
-                  {" → "}
-                  Fin : <span className="font-semibold">{formatDateFR(autoRenewEnd)}</span>
-                  <span className="text-muted-foreground"> (même durée que le contrat précédent)</span>
-                </>
-              )}
-            </div>
-            {!autoRenewEnd && (
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date de fin du nouveau contrat *</Label>
-                <DateInput value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} className="h-11" />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenewOpen(false)}>Annuler</Button>
-            <Button onClick={() => renewMutation.mutate()} disabled={renewMutation.isPending || (!autoRenewEnd && !renewEndDate)}>
-              {renewMutation.isPending ? "..." : "Confirmer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
