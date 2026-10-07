@@ -31,7 +31,9 @@ export default function WorkerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
-  const [renewDuration, setRenewDuration] = useState<string>("1_an");
+  const [renewEndDate, setRenewEndDate] = useState<string>("");
+  const { role } = useAuth();
+  const canManageContracts = role === "ADMIN" || role === "RH";
 
   const { data: worker, isLoading: loadingWorker } = useQuery({
     queryKey: ["worker", id],
