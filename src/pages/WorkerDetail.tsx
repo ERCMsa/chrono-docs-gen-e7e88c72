@@ -406,26 +406,30 @@ export default function WorkerDetail() {
           <DialogHeader>
             <DialogTitle>Renouveler le contrat</DialogTitle>
             <DialogDescription>
-              Sélectionnez la nouvelle durée. Le contrat débutera aujourd'hui.
+              Un nouveau contrat sera créé pour {worker?.full_name} en copiant toutes les informations du contrat précédent. L'ancien contrat est conservé.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Durée</Label>
-            <Select value={renewDuration} onValueChange={setRenewDuration}>
-              <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CONTRACT_DURATIONS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
             <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm">
-              Du <span className="font-semibold">{formatDateFR(new Date().toISOString().slice(0,10))}</span>
-              {" → "}
-              au <span className="font-semibold">{formatDateFR(computeEndDate(new Date().toISOString().slice(0,10), renewDuration))}</span>
+              Début : <span className="font-semibold">{formatDateFR(renewStart)}</span>
+              {autoRenewEnd && (
+                <>
+                  {" → "}
+                  Fin : <span className="font-semibold">{formatDateFR(autoRenewEnd)}</span>
+                  <span className="text-muted-foreground"> (même durée que le contrat précédent)</span>
+                </>
+              )}
             </div>
+            {!autoRenewEnd && (
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date de fin du nouveau contrat *</Label>
+                <DateInput value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} className="h-11" />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenewOpen(false)}>Annuler</Button>
-            <Button onClick={() => renewMutation.mutate()} disabled={renewMutation.isPending}>
+            <Button onClick={() => renewMutation.mutate()} disabled={renewMutation.isPending || (!autoRenewEnd && !renewEndDate)}>
               {renewMutation.isPending ? "..." : "Confirmer"}
             </Button>
           </DialogFooter>
