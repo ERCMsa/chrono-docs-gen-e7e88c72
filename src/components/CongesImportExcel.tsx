@@ -105,9 +105,9 @@ export default function CongesImportExcel({ workers, onImported }: Props) {
       <Button variant="outline" onClick={downloadTemplate} title="Télécharger le modèle Excel">
         <Download className="w-4 h-4 mr-2" />Modèle
       </Button>
-      <Button variant="outline" disabled={busy} onClick={() => inputRef.current?.click()}>
+      {/* <Button variant="outline" disabled={busy} onClick={() => inputRef.current?.click()}>
         <FileSpreadsheet className="w-4 h-4 mr-2" />{busy ? "Import..." : "Importer Excel"}
-      </Button>
+      </Button> */}
     </>
   );
 }

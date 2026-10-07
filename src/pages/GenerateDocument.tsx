@@ -573,10 +573,6 @@ export default function GenerateDocument() {
               </div>
               <div className="flex items-center gap-3">
                 <img src={defaultLogo} alt="Logo ERCM" className="h-12 w-auto" />
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Remplacer le logo (optionnel)</Label>
-                  <Input type="file" accept="image/*" onChange={handleLogoUpload} className="h-10 max-w-xs" />
-                </div>
               </div>
             </div>
 

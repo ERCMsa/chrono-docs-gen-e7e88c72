@@ -201,9 +201,9 @@ export default function Workers() {
             <Building2 className="w-3.5 h-3.5" /> Département : {role}
           </span>
         )}
-        <Button variant="outline" onClick={() => setImportOpen(true)}>
+        {/* <Button variant="outline" onClick={() => setImportOpen(true)}>
           <Upload className="w-4 h-4 mr-2" />Importer Excel
-        </Button>
+        </Button> */}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Ajouter</Button>
