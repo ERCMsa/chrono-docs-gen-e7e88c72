@@ -237,7 +237,20 @@ export default function WorkerDetail() {
           </span>
         )}
         <Link to="/workers"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" />Retour</Button></Link>
-        <Button variant="outline" onClick={() => setRenewOpen(true)}><RefreshCw className="w-4 h-4 mr-2" />Renouveler le contrat</Button>
+        {canManageContracts && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button variant="outline" disabled={!isExpired || renewMutation.isPending} onClick={() => setRenewOpen(true)}>
+                    <RefreshCw className="w-4 h-4 mr-2" />Renouveler le contrat
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!isExpired && <TooltipContent>Le contrat actuel est encore actif</TooltipContent>}
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Supprimer l'employé</Button>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogTrigger asChild>
