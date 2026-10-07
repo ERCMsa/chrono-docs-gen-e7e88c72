@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { formatDateFR } from "@/lib/date-utils";
 import {
   getContractExpiry,
+  latestContractsByWorker,
+  type ContractDocLike,
   type ContractExpiry,
   type ExpiryFilter,
 } from "@/lib/contract-utils";
@@ -91,16 +93,19 @@ export function ContractExpirySummary({
   onSelect,
   className,
 }: {
-  documents: { content: unknown }[];
+  documents: ContractDocLike[];
   active: ExpiryFilter;
   onSelect: (s: ExpiryFilter) => void;
   className?: string;
 }) {
   const counts = useMemo(() => {
+    // Seul le contrat le plus récent de chaque employé compte : un contrat
+    // renouvelé ne doit plus être considéré comme expiré.
+    const latestContracts = [...latestContractsByWorker(documents).values()];
     let ok = 0;
     let expiring = 0;
     let expired = 0;
-    for (const doc of documents) {
+    for (const doc of latestContracts) {
       const e = getContractExpiry(doc.content);
       if (e?.status === "ok") ok++;
       else if (e?.status === "expiring") expiring++;

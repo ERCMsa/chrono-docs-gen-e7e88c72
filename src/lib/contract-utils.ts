@@ -66,4 +66,42 @@ export function getContractExpiry(content: unknown): ContractExpiryInfo | null {
   return null;
 }
 
+// ===== Dernier contrat par employé =====
+// Un renouvellement conserve l'ancien document : seul le contrat le plus récent
+// d'un employé doit piloter le statut d'expiration, sinon un contrat renouvelé
+// continuerait d'apparaître comme « expiré ».
+export type ContractDocLike = {
+  id?: string | null;
+  worker_id?: string | null;
+  document_type?: string | null;
+  created_at?: string | null;
+  content?: unknown;
+};
+
+/**
+ * Associe chaque `worker_id` à son contrat le plus récent.
+ * Les documents non-contrat (bons, avertissements) sont ignorés.
+ * Le plus récent est retenu via `created_at` ; à défaut, le premier document
+ * rencontré gagne (les requêtes existantes sont déjà ordonnées `created_at` décroissant).
+ */
+export function latestContractsByWorker<T extends ContractDocLike>(
+  documents: T[] | null | undefined,
+): Map<string, T> {
+  const latest = new Map<string, T>();
+  for (const doc of documents ?? []) {
+    if (!doc || doc.document_type !== "contract") continue;
+    const workerId = doc.worker_id;
+    if (!workerId) continue;
+    const current = latest.get(workerId);
+    if (!current) {
+      latest.set(workerId, doc);
+      continue;
+    }
+    const a = typeof doc.created_at === "string" ? doc.created_at : "";
+    const b = typeof current.created_at === "string" ? current.created_at : "";
+    if (b && a && a > b) latest.set(workerId, doc);
+  }
+  return latest;
+}
+
 export { formatDateFR } from "./date-utils";

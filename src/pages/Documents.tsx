@@ -1,5 +1,5 @@
 import { formatDateFR } from "@/lib/date-utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import ContractsImportExport from "@/components/ContractsImportExport";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
 import RenewContractButton from "@/components/RenewContractButton";
-import { getContractExpiry, type ExpiryFilter } from "@/lib/contract-utils";
+import { getContractExpiry, latestContractsByWorker, type ExpiryFilter } from "@/lib/contract-utils";
 
 export default function Documents() {
   const queryClient = useQueryClient();
@@ -34,6 +34,19 @@ export default function Documents() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  // Dernier contrat par employé : un contrat renouvelé garde son ancien document,
+  // qui ne doit plus compter ni apparaître dans les filtres d'expiration.
+  const latestContracts = useMemo(() => latestContractsByWorker(documents), [documents]);
+  const latestContractIds = useMemo(
+    () => new Set([...latestContracts.values()].map((d) => d.id as string)),
+    [latestContracts],
+  );
+  const isSuperseded = (doc: any) =>
+    doc.document_type === "contract" &&
+    !!doc.worker_id &&
+    latestContracts.has(doc.worker_id) &&
+    latestContracts.get(doc.worker_id)!.id !== doc.id;
+
   const filtered = documents?.filter((doc) => {
     const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
     const query = search.trim().toLocaleLowerCase();
@@ -45,7 +58,8 @@ export default function Documents() {
     const matchesExpiry =
       expirationFilter === "all" ||
       doc.document_type !== "contract" ||
-      getContractExpiry((doc as any).content)?.status === expirationFilter;
+      (latestContractIds.has(doc.id) &&
+        getContractExpiry((doc as any).content)?.status === expirationFilter);
     return matchesType && matchesSearch && matchesExpiry;
   });
 
@@ -156,14 +170,22 @@ export default function Documents() {
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </div>
-                {/* Renouvellement proposé sur les contrats expirés */}
-                {contractExpiry?.status === "expired" && (doc as any).worker_id && (
-                  <RenewContractButton
-                    workerId={(doc as any).worker_id}
-                    workerName={(doc as any).workers?.full_name ?? null}
-                    contract={doc as any}
-                  />
+                {/* Contrat obsolète : conservé dans la liste, mais plus de renouvellement possible */}
+                {isSuperseded(doc) && (
+                  <span className="hidden shrink-0 items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground md:inline-flex">
+                    Remplacé
+                  </span>
                 )}
+                {/* Renouvellement proposé sur les contrats expirés en cours */}
+                {contractExpiry?.status === "expired" &&
+                  (doc as any).worker_id &&
+                  latestContractIds.has(doc.id) && (
+                    <RenewContractButton
+                      workerId={(doc as any).worker_id}
+                      workerName={(doc as any).workers?.full_name ?? null}
+                      contract={doc as any}
+                    />
+                  )}
                 <div className="flex shrink-0 items-center gap-1">
                   <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
                     <Button variant="ghost" size="icon">
