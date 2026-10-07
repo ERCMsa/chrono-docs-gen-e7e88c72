@@ -10,7 +10,6 @@ import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { ListRowsSkeleton } from "@/components/Skeletons";
-import ContractsImportExport from "@/components/ContractsImportExport";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
 import RenewContractButton from "@/components/RenewContractButton";
@@ -79,7 +78,6 @@ export default function Documents() {
         title="Documents"
         description={`${documents?.length ?? 0} document${(documents?.length ?? 0) !== 1 ? "s" : ""} généré${(documents?.length ?? 0) !== 1 ? "s" : ""}`}
       >
-        <ContractsImportExport />
       </PageHeader>
 
       <div className="space-y-3">

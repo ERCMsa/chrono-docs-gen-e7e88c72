@@ -22,7 +22,6 @@ import ContractPreview from "@/components/ContractPreview";
 import AvenantPreview, { AvenantData, EMPTY_AVENANT } from "@/components/AvenantPreview";
 import { WILAYAS_DATA, getCommunesByWilaya } from "@/data/wilayas";
 import { DUREE_OPTIONS, dureeArabicLabel, computeContractEnd } from "@/lib/contract-helpers";
-import ContractsImportExport from "@/components/ContractsImportExport";
 import defaultLogo from "@/assets/logo-ercm.png";
 
 type DocType = keyof typeof DOCUMENT_TYPES;
@@ -479,11 +478,6 @@ export default function GenerateDocument() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-[26px]">{isEdit ? "Modifier — " : ""}{DOCUMENT_TYPES[docType].label}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{isEdit ? "Modifiez les informations puis enregistrez les changements" : "Remplissez les informations pour générer le document"}</p>
         </div>
-        {isContract && (
-          <div className="flex flex-wrap items-center gap-2">
-            <ContractsImportExport />
-          </div>
-        )}
       </div>
 
       {isBonSection && !isEdit && (
