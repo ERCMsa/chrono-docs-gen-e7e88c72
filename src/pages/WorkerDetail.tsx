@@ -133,16 +133,47 @@ export default function WorkerDetail() {
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
 
+  // Dernier contrat de l'employé (documents triés par created_at desc)
+  const latestContract = (documents ?? []).find((d: any) => d.document_type === "contract");
+  const latestEnd = (latestContract?.content as any)?.date_fin as string | undefined;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  // Renouvellement possible uniquement si le dernier contrat est expiré
+  const isExpired = !!latestEnd && latestEnd < todayStr;
+  const dayAfter = (d: string) => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); };
+  const renewStart = latestEnd ? dayAfter(latestEnd) : todayStr;
+  const prevMois = parseInt((latestContract?.content as any)?.duree_mois ?? "", 10);
+  const autoRenewEnd = prevMois ? computeContractEnd(renewStart, prevMois) : "";
+
   const renewMutation = useMutation({
-    mutationFn: () => {
-      const start = new Date().toISOString().slice(0, 10);
-      const end = computeEndDate(start, renewDuration);
-      return updateWorker(id!, { duree_contrat: renewDuration, date_debut_contrat: start, date_fin_contrat: end } as any);
+    mutationFn: async () => {
+      const end = autoRenewEnd || renewEndDate;
+      if (!end) throw new Error("Date de fin requise");
+      const prevContent: Record<string, any> = { ...((latestContract?.content as any) ?? {}) };
+      delete prevContent.reference;
+      delete prevContent.num_contrat;
+      delete prevContent.avenant;
+      const content = { ...prevContent, date_debut: renewStart, date_fin: end };
+      const doc = await createDocumentWithReference({
+        worker_id: id!,
+        document_type: "contract",
+        title: `Contrat de travail - ${worker?.full_name}`,
+        content,
+      });
+      await updateWorker(id!, {
+        date_debut_contrat: renewStart,
+        date_fin_contrat: end,
+        duree_contrat: prevMois ? String(prevMois) : null,
+      } as any);
+      return doc;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["worker", id] });
       queryClient.invalidateQueries({ queryKey: ["workers"] });
+      queryClient.invalidateQueries({ queryKey: ["worker-documents", id] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
       setRenewOpen(false);
+      setRenewEndDate("");
       toast.success("Contrat renouvelé");
     },
     onError: () => toast.error("Erreur lors du renouvellement"),
