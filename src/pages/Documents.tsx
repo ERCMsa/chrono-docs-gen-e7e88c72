@@ -139,7 +139,7 @@ export default function Documents() {
         }}
       />
 
-      <SansContratExpiryList items={sansContratExpiries} />
+      <SansContratExpiryList items={sansContratExpiries} active={expirationFilter} />
 
       {isLoading ? (
         <ListRowsSkeleton />
