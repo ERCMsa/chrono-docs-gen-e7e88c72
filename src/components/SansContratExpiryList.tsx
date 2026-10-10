@@ -3,6 +3,7 @@ import { FilePlus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateFR, type ExpiryFilter, type SansContratExpiry } from "@/lib/contract-utils";
+import { format } from "date-fns"
 
 /** Badges de statut d'échéance implicite, alignés sur les chips d'expiration des contrats. */
 function SansContratStatusBadge({ item }: { item: SansContratExpiry }) {
@@ -23,7 +24,7 @@ function SansContratStatusBadge({ item }: { item: SansContratExpiry }) {
           urgent ? "bg-warning animate-pulse-soft" : "bg-muted-foreground/50",
         )}
       />
-      Échéance dans {item.daysLeft} j
+      expirés in {format(new Date(item.virtualEndDate), 'dd/MM')}
     </span>
   );
 }
