@@ -104,4 +104,59 @@ export function latestContractsByWorker<T extends ContractDocLike>(
   return latest;
 }
 
+// ===== Employés sans contrat =====
+// Des employés importés en données historiques n'ont aucun document contrat.
+// Leur échéance implicite est calculée à partir de la date d'embauche (+ 1 an),
+// ce qui permet de les alerter au même moment que les contrats réels.
+export type SansContratWorkerLike = {
+  id: string;
+  full_name?: string | null;
+  matricule?: string | null;
+  hire_date?: string | null;
+  date_demission?: string | null;
+};
+
+export type SansContratExpiry = {
+  worker: SansContratWorkerLike;
+  /** Fin du contrat virtuel (1 an après l'embauche). */
+  virtualEndDate: string;
+  status: Extract<ContractExpiry, "expiring" | "expired">;
+  daysLeft: number;
+  daysOver: number;
+};
+
+/**
+ * Employés sans document contrat dont l'échéance implicite (embauche + 1 an)
+ * approche ou est dépassée.
+ *
+ * - Ignorés : employés sans date d'embauche (échéance non calculable) et
+ *   employés démissionnaires (`date_demission` renseignée).
+ * - Ignorés : ceux dont la fin virtuelle est encore lointaine (statut « ok »),
+ *   seuls les statuts « expiring » (≤ 30 jours) et « expired » sont retenus.
+ */
+export function getSansContratExpiries(
+  workers: SansContratWorkerLike[] | null | undefined,
+  workerIdsWithContract: Set<string> | null | undefined,
+): SansContratExpiry[] {
+  const out: SansContratExpiry[] = [];
+  for (const worker of workers ?? []) {
+    if (!worker?.id) continue;
+    if (workerIdsWithContract?.has(worker.id)) continue;
+    if (worker.date_demission) continue;
+    if (!worker.hire_date) continue;
+
+    const virtualEndDate = computeEndDate(worker.hire_date, "1_an");
+    if (!virtualEndDate) continue;
+
+    const status = getContractStatus(virtualEndDate);
+    if (status.kind === "expiring") {
+      out.push({ worker, virtualEndDate, status: "expiring", daysLeft: status.daysLeft, daysOver: 0 });
+    } else if (status.kind === "expired") {
+      out.push({ worker, virtualEndDate, status: "expired", daysLeft: 0, daysOver: status.daysOver });
+    }
+  }
+  // Échéance la plus proche en premier
+  return out.sort((a, b) => a.virtualEndDate.localeCompare(b.virtualEndDate));
+}
+
 export { formatDateFR } from "./date-utils";

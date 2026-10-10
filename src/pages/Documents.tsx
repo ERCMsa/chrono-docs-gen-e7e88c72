@@ -1,7 +1,7 @@
 import { formatDateFR } from "@/lib/date-utils";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
@@ -13,7 +13,13 @@ import { ListRowsSkeleton } from "@/components/Skeletons";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
 import RenewContractButton from "@/components/RenewContractButton";
-import { getContractExpiry, latestContractsByWorker, type ExpiryFilter } from "@/lib/contract-utils";
+import SansContratExpiryList from "@/components/SansContratExpiryList";
+import {
+  getContractExpiry,
+  latestContractsByWorker,
+  getSansContratExpiries,
+  type ExpiryFilter,
+} from "@/lib/contract-utils";
 
 export default function Documents() {
   const queryClient = useQueryClient();
@@ -45,6 +51,21 @@ export default function Documents() {
     !!doc.worker_id &&
     latestContracts.has(doc.worker_id) &&
     latestContracts.get(doc.worker_id)!.id !== doc.id;
+
+  // Employés sans document contrat : échéance implicite = date d'embauche + 1 an.
+  // L'ensemble « avec contrat » est dérivé des documents déjà chargés (aucun appel API).
+  const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
+  const workerIdsWithContract = useMemo(() => {
+    const ids = new Set<string>();
+    for (const doc of documents ?? []) {
+      if (doc.document_type === "contract" && doc.worker_id) ids.add(doc.worker_id);
+    }
+    return ids;
+  }, [documents]);
+  const sansContratExpiries = useMemo(
+    () => getSansContratExpiries(workers, workerIdsWithContract),
+    [workers, workerIdsWithContract],
+  );
 
   const filtered = documents?.filter((doc) => {
     const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
@@ -110,12 +131,15 @@ export default function Documents() {
       <ContractExpirySummary
         documents={documents ?? []}
         active={expirationFilter}
+        sansContrat={sansContratExpiries}
         onSelect={(s) => {
           const next = s === "all" ? "all" : s;
           if (next !== "all" && typeFilter === "all") setTypeFilter("contract");
           setExpirationFilter(next);
         }}
       />
+
+      <SansContratExpiryList items={sansContratExpiries} />
 
       {isLoading ? (
         <ListRowsSkeleton />

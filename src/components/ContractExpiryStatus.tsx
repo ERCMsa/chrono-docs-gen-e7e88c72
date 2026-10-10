@@ -7,6 +7,7 @@ import {
   type ContractDocLike,
   type ContractExpiry,
   type ExpiryFilter,
+  type SansContratExpiry,
 } from "@/lib/contract-utils";
 
 const BADGE_STYLES: Record<ContractExpiry, { wrap: string; dot: string }> = {
@@ -91,11 +92,14 @@ export function ContractExpirySummary({
   documents,
   active,
   onSelect,
+  sansContrat,
   className,
 }: {
   documents: ContractDocLike[];
   active: ExpiryFilter;
   onSelect: (s: ExpiryFilter) => void;
+  /** Échéances implicites des employés sans contrat (statuts expiring/expired uniquement). */
+  sansContrat?: Pick<SansContratExpiry, "status">[];
   className?: string;
 }) {
   const counts = useMemo(() => {
@@ -111,8 +115,13 @@ export function ContractExpirySummary({
       else if (e?.status === "expiring") expiring++;
       else if (e?.status === "expired") expired++;
     }
+    // Les employés sans contrat comptent avec leur échéance implicite (embauche + 1 an)
+    for (const item of sansContrat ?? []) {
+      if (item.status === "expiring") expiring++;
+      else if (item.status === "expired") expired++;
+    }
     return { ok, expiring, expired, total: ok + expiring + expired };
-  }, [documents]);
+  }, [documents, sansContrat]);
 
   if (counts.total === 0) return null;
 
