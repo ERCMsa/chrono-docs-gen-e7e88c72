@@ -28,7 +28,7 @@ const emptyWorker: WorkerInsert = {
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 
-type SortKey = "full_name" | "matricule" | "position" | "department" | "status";
+type SortKey = "full_name" | "matricule" | "position" | "department" | "hire_date" | "status";
 
 export default function Workers() {
   const queryClient = useQueryClient();
@@ -140,6 +140,11 @@ export default function Workers() {
     };
     const value = (worker: typeof a): string | number => {
       if (sortKey === "status") return statusValue(worker);
+      // La date d'embauche est renvoyée telle quelle (format ISO, tri chronologique)
+      if (sortKey === "hire_date") {
+        const hire = worker.hire_date ?? (worker as any).date_debut_contrat;
+        return hire ? String(hire) : "";
+      }
       // Matricule contains numbers -> sort numerically, not as strings
       if (sortKey === "matricule") {
         const digits = String(worker[sortKey] ?? "").replace(/\D/g, "");
@@ -150,6 +155,10 @@ export default function Workers() {
     };
     const va = value(a);
     const vb = value(b);
+    // Sans date d'embauche : toujours en fin de liste (ascendant comme descendant)
+    if (sortKey === "hire_date" && va !== vb && (va === "" || vb === "")) {
+      return va === "" ? 1 : -1;
+    }
     const comparison =
       typeof va === "number" && typeof vb === "number"
         ? va - vb
@@ -531,13 +540,14 @@ export default function Workers() {
           <TabsContent value="list" className="mt-0">
             <div className="panel overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
+                <table className="w-full min-w-[900px] text-sm">
                 <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <SortHeader column="full_name">Employé</SortHeader>
                     <SortHeader column="matricule">Matricule</SortHeader>
                     <SortHeader column="position">Fonction</SortHeader>
                     <SortHeader column="department">Département</SortHeader>
+                    <SortHeader column="hire_date">Date d'embauche</SortHeader>
                     <SortHeader column="status">Statut</SortHeader>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</th>
                   </tr>
@@ -557,6 +567,11 @@ export default function Workers() {
                         <td className="px-4 py-3 align-middle text-muted-foreground">{w.matricule || "—"}</td>
                         <td className="px-4 py-3 align-middle">{w.position || "—"}</td>
                         <td className="px-4 py-3 align-middle">{w.department || "—"}</td>
+                        <td className="px-4 py-3 align-middle text-muted-foreground">
+                          {(w.hire_date ?? (w as any).date_debut_contrat)
+                            ? formatDateFR((w.hire_date ?? (w as any).date_debut_contrat) as string)
+                            : "—"}
+                        </td>
                         <td className="px-4 py-3 align-middle">
                           {resignedAt ? (
                             <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Démission</span>
