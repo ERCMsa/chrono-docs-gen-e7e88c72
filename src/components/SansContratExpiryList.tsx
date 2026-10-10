@@ -4,6 +4,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateFR, type SansContratExpiry } from "@/lib/contract-utils";
 
+/**
+ * Durée écoulée lisible : au-delà d'une année, on compte en années + jours
+ * restants (ex. 2623 j -> « 7 ans et 68 j ») au lieu d'afficher un nombre
+ * de jours sur quatre chiffres.
+ */
+function formatElapsedDays(days: number): string {
+  if (days < 365) return `${days} j`;
+  const years = Math.floor(days / 365);
+  const rest = days % 365;
+  const yearLabel = years > 1 ? `${years} ans` : `${years} an`;
+  return rest === 0 ? yearLabel : `${yearLabel} et ${rest} j`;
+}
+
 /** Badge de statut d'échéance implicite, aligné sur les chips d'expiration des contrats. */
 function SansContratStatusBadge({ item }: { item: SansContratExpiry }) {
   const isExpired = item.status === "expired";
@@ -18,7 +31,9 @@ function SansContratStatusBadge({ item }: { item: SansContratExpiry }) {
       title={`Échéance implicite (embauche + 1 an) : ${formatDateFR(item.virtualEndDate)}`}
     >
       <span className={cn("h-2 w-2 shrink-0 rounded-full", isExpired ? "bg-destructive" : "bg-warning animate-pulse-soft")} />
-      {isExpired ? `Sans contrat depuis ${item.daysOver} j` : `Échéance dans ${item.daysLeft} j`}
+      {isExpired
+        ? `Sans contrat depuis ${formatElapsedDays(item.daysOver)}`
+        : `Échéance dans ${item.daysLeft} j`}
     </span>
   );
 }
