@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDateFR, type ExpiryFilter, type SansContratExpiry } from "@/lib/contract-utils";
 
-type SansContratStatus = SansContratExpiry["status"];
-
 /** Badges de statut d'échéance implicite, alignés sur les chips d'expiration des contrats. */
 function SansContratStatusBadge({ item }: { item: SansContratExpiry }) {
   const urgent = item.status === "expiring";
@@ -70,50 +68,30 @@ function SansContratRow({ item }: { item: SansContratExpiry }) {
 
 interface SansContratExpiryListProps {
   items: SansContratExpiry[];
-  /** Filtre d'expiration actif : la liste ne montre que les employés de cet état. */
+  /** Filtre d'expiration actif : la section s'affiche dans « en cours ». */
   active?: ExpiryFilter;
   className?: string;
 }
-
-/** Regroupement par état : chaque employé est affiché sous SON état. */
-const GROUPS: Array<{ key: SansContratStatus; label: string; hint: string; dot: string }> = [
-  {
-    key: "expiring",
-    label: "Échéance proche",
-    hint: "30 jours ou moins",
-    dot: "bg-warning animate-pulse-soft",
-  },
-  {
-    key: "ok",
-    label: "Échéance plus lointaine",
-    hint: "plus de 30 jours",
-    dot: "bg-muted-foreground/50",
-  },
-];
 
 /**
  * Employés sans document contrat dont l'échéance implicite (date d'embauche + 1 an)
  * est atteinte ou dépassée. Complète le bandeau d'expiration : ces employés
  * n'ont aucune ligne dans la liste des documents, il faut donc une section dédiée.
  *
- * La section ne s'affiche que lorsqu'un filtre d'état est sélectionné, et ne
- * montre alors que les employés de cet état (filtre « expirent bientôt » →
- * uniquement les échéances proches).
+ * La section s'affiche dans le filtre « en cours » et liste TOUS les employés
+ * concernés, sans filtrage par état, triés par nombre de jours de retard
+ * décroissant (le plus ancien retard en tête).
  *
  * L'action proposée est la CRÉATION d'un contrat (et non le renouvellement),
  * ces employés n'ayant pas de contrat précédent à recopier.
  */
 export default function SansContratExpiryList({ items, active = "all", className }: SansContratExpiryListProps) {
-  // Visible uniquement lorsqu'un filtre d'état est sélectionné
-  if (!active || active === "all") return null;
+  // Affiché uniquement dans le filtre « en cours »
+  if (active !== "ok") return null;
 
-  const visible = (items ?? []).filter((i) => i.status === active);
+  // Aucun filtrage par état : tri du plus gros retard au plus petit
+  const visible = [...(items ?? [])].sort((a, b) => b.daysOver - a.daysOver);
   if (visible.length === 0) return null;
-
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    items: visible.filter((i) => i.status === group.key),
-  })).filter((group) => group.items.length > 0);
 
   return (
     <section className={cn("panel overflow-hidden", className)}>
@@ -129,25 +107,13 @@ export default function SansContratExpiryList({ items, active = "all", className
         </span>
       </header>
 
-      {groups.map((group) => (
-        <div key={group.key}>
-          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2">
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", group.dot)} />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-              {group.label}
-            </span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {group.items.length}
-            </span>
-            <span className="text-xs text-muted-foreground">{group.hint}</span>
-          </div>
-          <ul className="divide-y">
-            {group.items.map((item) => (
-              <SansContratRow key={item.worker.id} item={item} />
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ul className="divide-y">
+       {[...visible]
+         .sort((a, b) => b.daysLeft - a.daysLeft)
+         .map((item) => (
+        <SansContratRow key={item.worker.id} item={item} />
+        ))}
+      </ul>
     </section>
   );
 }
