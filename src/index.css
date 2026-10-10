@@ -184,6 +184,14 @@
 }
 
 @media print {
+  /* Le shell est verrouillé en hauteur pour l'écran (h-screen + overflow-hidden)
+     afin que la barre latérale reste fixe au défilement. On le libère pour
+     l'impression, sinon le document A4 serait rogné et les pages perdues. */
+  .app-shell {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   body * {
     visibility: hidden;
   }

@@ -7,10 +7,18 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export default function Layout() {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
-      {!isMobile && <AppSidebar />}
+    // h-screen + overflow-hidden : la barre latérale reste fixe, seul <main> défile.
+    // La classe app-shell est libérée en @media print (cf. index.css).
+    <div className="app-shell flex h-screen overflow-hidden">
+      {!isMobile && (
+        <AppSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+        />
+      )}
 
       {isMobile && sidebarOpen && (
         <>
@@ -24,9 +32,9 @@ export default function Layout() {
         </>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <div className="page-container space-y-6">
             <Outlet />
           </div>

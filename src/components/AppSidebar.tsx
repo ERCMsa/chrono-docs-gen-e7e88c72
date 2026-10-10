@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Users, LayoutDashboard, LogOut, AlertTriangle, FilePlus, BarChart3, FileText, Files, X, Wallet, CalendarX, CalendarRange, Shield,
+  Users, LayoutDashboard, LogOut, AlertTriangle, FilePlus, BarChart3, FileText, Files, X, Wallet, CalendarX, CalendarRange, Shield, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import logoErcm from "@/assets/logo-ercm.png";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModuleKey } from "@/lib/permissions";
@@ -68,9 +69,12 @@ const initials = (name?: string | null) =>
 
 interface AppSidebarProps {
   onClose?: () => void;
+  /** Mode réduit : uniquement les icônes. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
-export default function AppSidebar({ onClose }: AppSidebarProps) {
+export default function AppSidebar({ onClose, collapsed = false, onToggleCollapsed }: AppSidebarProps) {
   const location = useLocation();
   const { hasPermission, isAdmin, role, user } = useAuth();
 
@@ -81,18 +85,28 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
     return true;
   };
 
+  const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
+
   return (
-    <aside className="flex w-64 min-h-screen flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <aside
+      className={cn(
+        // h-full : la barre latérale occupe la hauteur de la fenêtre et ne défile pas
+        "flex h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        collapsed ? "w-16" : "w-64",
+      )}
+    >
       {/* Brand */}
-      <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-5">
+      <div className={cn("flex items-center border-b border-sidebar-border", collapsed ? "justify-center px-2 py-4" : "justify-between px-5 py-5")}>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary/15 ring-1 ring-inset ring-sidebar-primary/30">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/15 ring-1 ring-inset ring-sidebar-primary/30">
             <img src={logoErcm} alt="ERCM" className="h-7 w-auto object-contain" />
           </div>
-          <div>
-            <h1 className="text-[15px] font-bold leading-tight tracking-tight text-sidebar-primary">Rh Doc Gen</h1>
-            <p className="text-[11px] text-sidebar-foreground/60">Gestion documentaire</p>
-          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="text-[15px] font-bold leading-tight tracking-tight text-sidebar-primary">Rh Doc Gen</h1>
+              <p className="text-[11px] text-sidebar-foreground/60">Gestion documentaire</p>
+            </div>
+          )}
         </div>
         {onClose && (
           <Button variant="ghost" size="icon" onClick={onClose} className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground">
@@ -108,21 +122,25 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
           if (items.length === 0) return null;
           return (
             <div key={group.label}>
-              <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/40">
-                {group.label}
-              </p>
+              {!collapsed && (
+                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/40">
+                  {group.label}
+                </p>
+              )}
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const isActive =
                     location.pathname === item.to ||
                     (item.to !== "/" && location.pathname.startsWith(item.to));
-                  return (
+                  const link = (
                     <Link
                       key={item.to}
                       to={item.to}
                       onClick={onClose}
+                      title={collapsed ? item.label : undefined}
                       className={cn(
-                        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150",
+                        "group relative flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150",
+                        collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2",
                         isActive
                           ? "bg-sidebar-accent text-sidebar-foreground"
                           : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
@@ -140,8 +158,18 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
                           isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80",
                         )}
                       />
-                      {item.label}
+                      {!collapsed && item.label}
                     </Link>
+                  );
+
+                  // En mode réduit, le libellé est remplacé par une infobulle
+                  return collapsed ? (
+                    <Tooltip key={item.to}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    link
                   );
                 })}
               </div>
@@ -150,18 +178,39 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
         })}
       </nav>
 
-      {/* User footer */}
+      {/* Pied de page : repli + utilisateur */}
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+        {onToggleCollapsed && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onToggleCollapsed}
+                className={cn(
+                  "mb-1 flex w-full items-center rounded-lg text-[13px] font-medium text-sidebar-foreground/65 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+                )}
+              >
+                <CollapseIcon className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/50" />
+                {!collapsed && "Réduire le menu"}
+              </button>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right">Déplier le menu</TooltipContent>}
+          </Tooltip>
+        )}
+
+        <div className={cn("flex items-center rounded-lg", collapsed ? "justify-center px-0 py-2" : "gap-3 px-2 py-2")}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/20 text-xs font-bold text-sidebar-primary ring-1 ring-inset ring-sidebar-primary/30">
             {initials(user?.full_name || user?.username)}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium leading-tight text-sidebar-foreground">
-              {user?.full_name || user?.username || "Utilisateur"}
-            </p>
-            <p className="truncate text-[11px] text-sidebar-foreground/50">{role}</p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium leading-tight text-sidebar-foreground">
+                {user?.full_name || user?.username || "Utilisateur"}
+              </p>
+              <p className="truncate text-[11px] text-sidebar-foreground/50">{role}</p>
+            </div>
+          )}
         </div>
       </div>
     </aside>
