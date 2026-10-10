@@ -40,12 +40,15 @@ function SansContratRow({ item }: { item: SansContratExpiry }) {
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
+        <Link
+          to={`/workers/${worker.id}`}
+          className="block truncate text-sm font-medium hover:text-primary hover:underline"
+        >
           {worker.full_name || "Employé sans nom"}
           {worker.matricule ? (
             <span className="ml-2 text-xs font-normal text-muted-foreground">#{worker.matricule}</span>
           ) : null}
-        </p>
+        </Link>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
           Embauche : {worker.hire_date ? formatDateFR(worker.hire_date) : "—"}
           <span className="mx-1.5 text-muted-foreground/50">•</span>
@@ -93,14 +96,18 @@ const GROUPS: Array<{ key: SansContratStatus; label: string; hint: string; dot: 
  * est atteinte ou dépassée. Complète le bandeau d'expiration : ces employés
  * n'ont aucune ligne dans la liste des documents, il faut donc une section dédiée.
  *
- * La section suit le filtre d'expiration actif : un employé n'apparaît que sous
- * SON état (filtre « expirent bientôt » → uniquement les échéances proches).
+ * La section ne s'affiche que lorsqu'un filtre d'état est sélectionné, et ne
+ * montre alors que les employés de cet état (filtre « expirent bientôt » →
+ * uniquement les échéances proches).
  *
  * L'action proposée est la CRÉATION d'un contrat (et non le renouvellement),
  * ces employés n'ayant pas de contrat précédent à recopier.
  */
 export default function SansContratExpiryList({ items, active = "all", className }: SansContratExpiryListProps) {
-  const visible = (items ?? []).filter((i) => active === "all" || i.status === active);
+  // Visible uniquement lorsqu'un filtre d'état est sélectionné
+  if (!active || active === "all") return null;
+
+  const visible = (items ?? []).filter((i) => i.status === active);
   if (visible.length === 0) return null;
 
   const groups = GROUPS.map((group) => ({

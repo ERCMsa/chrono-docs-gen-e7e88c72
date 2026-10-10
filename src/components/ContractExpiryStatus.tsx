@@ -93,6 +93,7 @@ export function ContractExpirySummary({
   active,
   onSelect,
   sansContrat,
+  excludedWorkerIds,
   className,
 }: {
   documents: ContractDocLike[];
@@ -100,12 +101,17 @@ export function ContractExpirySummary({
   onSelect: (s: ExpiryFilter) => void;
   /** Échéances implicites des employés sans contrat (statuts expiring/expired uniquement). */
   sansContrat?: Pick<SansContratExpiry, "status">[];
+  /** Employés démissionnaires : exclus des décomptes d'expiration. */
+  excludedWorkerIds?: Set<string>;
   className?: string;
 }) {
   const counts = useMemo(() => {
     // Seul le contrat le plus récent de chaque employé compte : un contrat
     // renouvelé ne doit plus être considéré comme expiré.
-    const latestContracts = [...latestContractsByWorker(documents).values()];
+    // Les employés démissionnaires sont exclus (leur contrat n'est plus à renouveler).
+    const latestContracts = [...latestContractsByWorker(documents).values()].filter(
+      (doc) => !doc.worker_id || !excludedWorkerIds?.has(doc.worker_id),
+    );
     let ok = 0;
     let expiring = 0;
     let expired = 0;
@@ -121,7 +127,7 @@ export function ContractExpirySummary({
       if (item.status === "expiring") expiring++;
     }
     return { ok, expiring, expired, total: ok + expiring + expired };
-  }, [documents, sansContrat]);
+  }, [documents, sansContrat, excludedWorkerIds]);
 
   if (counts.total === 0) return null;
 

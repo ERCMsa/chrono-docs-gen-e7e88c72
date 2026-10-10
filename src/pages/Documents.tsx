@@ -67,6 +67,16 @@ export default function Documents() {
     [workers, workerIdsWithContract],
   );
 
+  // Employés démissionnaires : exclus des vues d'expiration (avec ou sans contrat),
+  // leurs contrats ne sont plus à renouveler.
+  const resignedWorkerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const w of workers ?? []) {
+      if (w?.id && (w as any).date_demission) ids.add(w.id);
+    }
+    return ids;
+  }, [workers]);
+
   const filtered = documents?.filter((doc) => {
     const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
     const query = search.trim().toLocaleLowerCase();
@@ -78,8 +88,9 @@ export default function Documents() {
     const matchesExpiry =
       expirationFilter === "all" ||
       doc.document_type !== "contract" ||
-      (latestContractIds.has(doc.id) &&
-        getContractExpiry((doc as any).content)?.status === expirationFilter);
+      (!doc.worker_id || !resignedWorkerIds.has(doc.worker_id)) &&
+        latestContractIds.has(doc.id) &&
+        getContractExpiry((doc as any).content)?.status === expirationFilter;
     return matchesType && matchesSearch && matchesExpiry;
   });
 
@@ -132,6 +143,7 @@ export default function Documents() {
         documents={documents ?? []}
         active={expirationFilter}
         sansContrat={sansContratExpiries}
+        excludedWorkerIds={resignedWorkerIds}
         onSelect={(s) => {
           const next = s === "all" ? "all" : s;
           if (next !== "all" && typeFilter === "all") setTypeFilter("contract");
@@ -198,9 +210,10 @@ export default function Documents() {
                     Remplacé
                   </span>
                 )}
-                {/* Renouvellement proposé sur les contrats expirés en cours */}
+                {/* Renouvellement proposé sur les contrats expirés en cours (jamais pour un démissionnaire) */}
                 {contractExpiry?.status === "expired" &&
                   (doc as any).worker_id &&
+                  !resignedWorkerIds.has((doc as any).worker_id) &&
                   latestContractIds.has(doc.id) && (
                     <RenewContractButton
                       workerId={(doc as any).worker_id}
