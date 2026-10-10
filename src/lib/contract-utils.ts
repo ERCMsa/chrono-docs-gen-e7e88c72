@@ -120,19 +120,29 @@ export type SansContratExpiry = {
   worker: SansContratWorkerLike;
   /** Fin du contrat virtuel (1 an après l'embauche). */
   virtualEndDate: string;
-  status: Extract<ContractExpiry, "expiring" | "expired">;
+  /** « expiring » quand l'échéance du cycle est proche (≤ 30 j), sinon « ok ». */
+  status: Extract<ContractExpiry, "expiring" | "ok">;
+  /** Jours restants avant l'échéance du cycle annuel courant. */
   daysLeft: number;
+  /** Jours réellement écoulés depuis la fin implicite. */
   daysOver: number;
 };
 
+/** Seuil « échéance proche », aligné sur getContractStatus. */
+const EXPIRING_DAYS = 30;
+
 /**
  * Employés sans document contrat dont l'échéance implicite (embauche + 1 an)
- * approche ou est dépassée.
+ * est atteinte ou dépassée.
  *
- * - Ignorés : employés sans date d'embauche (échéance non calculable) et
- *   employés démissionnaires (`date_demission` renseignée).
- * - Ignorés : ceux dont la fin virtuelle est encore lointaine (statut « ok »),
- *   seuls les statuts « expiring » (≤ 30 jours) et « expired » sont retenus.
+ * L'échéance est ramenée dans le cycle annuel courant : au-delà d'une année de
+ * retard, ce sont les jours restants dans l'année en cours qui déterminent
+ * l'urgence (ex. 2623 j de retard => 2623 % 365 = 68 j restants). Le statut
+ * « expiring » (≤ 30 j) sert uniquement à prioriser l'alerte.
+ *
+ * - Ignorés : employés sans date d'embauche (échéance non calculable),
+ *   employés démissionnaires (`date_demission` renseignée) et ceux dont
+ *   l'échéance implicite est encore dans le futur.
  */
 export function getSansContratExpiries(
   workers: SansContratWorkerLike[] | null | undefined,
@@ -149,14 +159,31 @@ export function getSansContratExpiries(
     if (!virtualEndDate) continue;
 
     const status = getContractStatus(virtualEndDate);
+    // Échéance encore lointaine : rien à signaler
+    if (status.kind === "active") continue;
+
+    let daysLeft: number;
+    let daysOver = 0;
     if (status.kind === "expiring") {
-      out.push({ worker, virtualEndDate, status: "expiring", daysLeft: status.daysLeft, daysOver: 0 });
+      daysLeft = status.daysLeft;
     } else if (status.kind === "expired") {
-      out.push({ worker, virtualEndDate, status: "expired", daysLeft: 0, daysOver: status.daysOver });
+      // Cycle annuel : on repart du reste de l'année de retard en cours.
+      daysOver = status.daysOver;
+      daysLeft = status.daysOver % 365;
+    } else {
+      continue;
     }
+
+    out.push({
+      worker,
+      virtualEndDate,
+      status: daysLeft <= EXPIRING_DAYS ? "expiring" : "ok",
+      daysLeft,
+      daysOver,
+    });
   }
   // Échéance la plus proche en premier
-  return out.sort((a, b) => a.virtualEndDate.localeCompare(b.virtualEndDate));
+  return out.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
 export { formatDateFR } from "./date-utils";

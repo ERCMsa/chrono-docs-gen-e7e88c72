@@ -115,10 +115,10 @@ export function ContractExpirySummary({
       else if (e?.status === "expiring") expiring++;
       else if (e?.status === "expired") expired++;
     }
-    // Les employés sans contrat comptent avec leur échéance implicite (embauche + 1 an)
+    // Les employés sans contrat comptent avec leur échéance implicite (embauche + 1 an),
+    // seuls ceux dont l'échéance du cycle annuel approche (≤ 30 j) sont comptés.
     for (const item of sansContrat ?? []) {
       if (item.status === "expiring") expiring++;
-      else if (item.status === "expired") expired++;
     }
     return { ok, expiring, expired, total: ok + expiring + expired };
   }, [documents, sansContrat]);
