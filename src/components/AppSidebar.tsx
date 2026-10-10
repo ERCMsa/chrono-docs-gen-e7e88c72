@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Users, LayoutDashboard, LogOut, AlertTriangle, FilePlus, BarChart3, FileText, X, Wallet, CalendarX, CalendarRange, Shield,
+  Users, LayoutDashboard, LogOut, AlertTriangle, FilePlus, BarChart3, FileText, Files, X, Wallet, CalendarX, CalendarRange, Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoErcm from "@/assets/logo-ercm.png";
@@ -29,6 +29,7 @@ const navGroups: NavGroup[] = [
       { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
       { to: "/workers", label: "Employés", icon: Users, module: "employees" },
       { to: "/documents", label: "Documents", icon: FileText, module: "documents" },
+      { to: "/contracts", label: "Contracts List", icon: Files, module: "documents" },
     ],
   },
   {

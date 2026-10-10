@@ -14,6 +14,7 @@ const PAGE_TITLES: Array<[string, string]> = [
   ["/admin/permissions", "Permissions"],
   ["/workers", "Employés"],
   ["/documents", "Documents"],
+  ["/contracts", "Contracts List"],
   ["/generate", "Génération de documents"],
   ["/statistics", "Statistiques"],
   ["/acomptes", "Acomptes"],

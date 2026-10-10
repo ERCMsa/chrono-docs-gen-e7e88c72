@@ -1,7 +1,7 @@
 import { formatDateFR } from "@/lib/date-utils";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
@@ -11,21 +11,16 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { ListRowsSkeleton } from "@/components/Skeletons";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
-import RenewContractButton from "@/components/RenewContractButton";
-import SansContratExpiryList from "@/components/SansContratExpiryList";
-import {
-  getContractExpiry,
-  latestContractsByWorker,
-  getSansContratExpiries,
-  type ExpiryFilter,
-} from "@/lib/contract-utils";
+
+// Les contrats disposent de leur propre page (/contracts).
+const DOCUMENT_TYPES_SANS_CONTRAT = Object.entries(DOCUMENT_TYPES).filter(
+  ([key]) => key !== "contract",
+);
 
 export default function Documents() {
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [expirationFilter, setExpirationFilter] = useState<ExpiryFilter>("all");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
   const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
 
@@ -39,45 +34,9 @@ export default function Documents() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
-  // Dernier contrat par employé : un contrat renouvelé garde son ancien document,
-  // qui ne doit plus compter ni apparaître dans les filtres d'expiration.
-  const latestContracts = useMemo(() => latestContractsByWorker(documents), [documents]);
-  const latestContractIds = useMemo(
-    () => new Set([...latestContracts.values()].map((d) => d.id as string)),
-    [latestContracts],
-  );
-  const isSuperseded = (doc: any) =>
-    doc.document_type === "contract" &&
-    !!doc.worker_id &&
-    latestContracts.has(doc.worker_id) &&
-    latestContracts.get(doc.worker_id)!.id !== doc.id;
+  const nonContractDocuments = documents?.filter((doc) => doc.document_type !== "contract");
 
-  // Employés sans document contrat : échéance implicite = date d'embauche + 1 an.
-  // L'ensemble « avec contrat » est dérivé des documents déjà chargés (aucun appel API).
-  const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
-  const workerIdsWithContract = useMemo(() => {
-    const ids = new Set<string>();
-    for (const doc of documents ?? []) {
-      if (doc.document_type === "contract" && doc.worker_id) ids.add(doc.worker_id);
-    }
-    return ids;
-  }, [documents]);
-  const sansContratExpiries = useMemo(
-    () => getSansContratExpiries(workers, workerIdsWithContract),
-    [workers, workerIdsWithContract],
-  );
-
-  // Employés démissionnaires : exclus des vues d'expiration (avec ou sans contrat),
-  // leurs contrats ne sont plus à renouveler.
-  const resignedWorkerIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const w of workers ?? []) {
-      if (w?.id && (w as any).date_demission) ids.add(w.id);
-    }
-    return ids;
-  }, [workers]);
-
-  const filtered = documents?.filter((doc) => {
+  const filtered = nonContractDocuments?.filter((doc) => {
     const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
     const query = search.trim().toLocaleLowerCase();
     const matchesSearch = !query || [
@@ -85,30 +44,25 @@ export default function Documents() {
       (doc as any).reference,
       (doc as any).workers?.full_name,
     ].some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
-    const matchesExpiry =
-      expirationFilter === "all" ||
-      doc.document_type !== "contract" ||
-      (!doc.worker_id || !resignedWorkerIds.has(doc.worker_id)) &&
-        latestContractIds.has(doc.id) &&
-        getContractExpiry((doc as any).content)?.status === expirationFilter;
-    return matchesType && matchesSearch && matchesExpiry;
+    return matchesType && matchesSearch;
   });
 
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
   const documentTabs = [
     { key: "all", label: "Tous" },
-    ...Object.entries(DOCUMENT_TYPES).map(([key, { label }]) => ({ key, label })),
+    ...DOCUMENT_TYPES_SANS_CONTRAT.map(([key, { label }]) => ({ key, label })),
   ];
 
-  const countForType = (type: string) => type === "all"
-    ? documents?.length ?? 0
-    : documents?.filter((doc) => doc.document_type === type).length ?? 0;
+  const countForType = (type: string) =>
+    type === "all"
+      ? nonContractDocuments?.length ?? 0
+      : nonContractDocuments?.filter((doc) => doc.document_type === type).length ?? 0;
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Documents"
-        description={`${documents?.length ?? 0} document${(documents?.length ?? 0) !== 1 ? "s" : ""} généré${(documents?.length ?? 0) !== 1 ? "s" : ""}`}
+        description={`${nonContractDocuments?.length ?? 0} document${(nonContractDocuments?.length ?? 0) !== 1 ? "s" : ""} généré${(nonContractDocuments?.length ?? 0) !== 1 ? "s" : ""}`}
       >
       </PageHeader>
 
@@ -139,20 +93,6 @@ export default function Documents() {
         </div>
       </div>
 
-      <ContractExpirySummary
-        documents={documents ?? []}
-        active={expirationFilter}
-        sansContrat={sansContratExpiries}
-        excludedWorkerIds={resignedWorkerIds}
-        onSelect={(s) => {
-          const next = s === "all" ? "all" : s;
-          if (next !== "all" && typeFilter === "all") setTypeFilter("contract");
-          setExpirationFilter(next);
-        }}
-      />
-
-      <SansContratExpiryList items={sansContratExpiries} active={expirationFilter} />
-
       {isLoading ? (
         <ListRowsSkeleton />
       ) : filtered && filtered.length > 0 ? (
@@ -162,18 +102,11 @@ export default function Documents() {
             const respOk = (doc as any).validated_by_responsible;
             const rhOk = (doc as any).validated_by_rh;
             const fullyValidated = respOk && rhOk;
-            const contractExpiry = doc.document_type === "contract" ? getContractExpiry((doc as any).content) : null;
-            const rowTint =
-              contractExpiry?.status === "expired"
-                ? "bg-destructive/5"
-                : contractExpiry?.status === "expiring"
-                  ? "bg-warning/5"
-                  : "";
 
             return (
               <div
                 key={doc.id}
-                className={`flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:flex-nowrap sm:px-5 ${rowTint}`}
+                className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:flex-nowrap sm:px-5"
               >
                 <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
                   <FileText className="h-4 w-4" />
@@ -198,29 +131,10 @@ export default function Documents() {
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning"><Clock className="h-3.5 w-3.5" /> En attente {respOk ? "(RH)" : rhOk ? "(Chef)" : ""}</span>
                     )
-                  ) : doc.document_type === "contract" ? (
-                    <ContractExpiryBadge content={(doc as any).content} />
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </div>
-                {/* Contrat obsolète : conservé dans la liste, mais plus de renouvellement possible */}
-                {isSuperseded(doc) && (
-                  <span className="hidden shrink-0 items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground md:inline-flex">
-                    Remplacé
-                  </span>
-                )}
-                {/* Renouvellement proposé sur les contrats expirés en cours (jamais pour un démissionnaire) */}
-                {contractExpiry?.status === "expired" &&
-                  (doc as any).worker_id &&
-                  !resignedWorkerIds.has((doc as any).worker_id) &&
-                  latestContractIds.has(doc.id) && (
-                    <RenewContractButton
-                      workerId={(doc as any).worker_id}
-                      workerName={(doc as any).workers?.full_name ?? null}
-                      contract={doc as any}
-                    />
-                  )}
                 <div className="flex shrink-0 items-center gap-1">
                   <Link to={`/documents/${doc.id}`} aria-label={`Voir ${doc.title}`}>
                     <Button variant="ghost" size="icon">

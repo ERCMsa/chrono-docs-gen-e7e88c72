@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Workers from "./pages/Workers";
 import WorkerDetail from "./pages/WorkerDetail";
 import Documents from "./pages/Documents";
+import Contracts from "./pages/Contracts";
 import DocumentView from "./pages/DocumentView";
 import GenerateDocument from "./pages/GenerateDocument";
 import Statistics from "./pages/Statistics";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/workers" element={<PrivateRoute module="employees"><Workers /></PrivateRoute>} />
               <Route path="/workers/:id" element={<PrivateRoute module="employees"><WorkerDetail /></PrivateRoute>} />
               <Route path="/documents" element={<PrivateRoute module="documents"><Documents /></PrivateRoute>} />
+              <Route path="/contracts" element={<PrivateRoute module="documents"><Contracts /></PrivateRoute>} />
               
               <Route path="/documents/:id" element={<PrivateRoute module="documents"><DocumentView /></PrivateRoute>} />
               <Route path="/generate/:type" element={<PrivateRoute module="documents"><GenerateDocument /></PrivateRoute>} />
