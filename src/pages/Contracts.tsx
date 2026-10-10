@@ -131,6 +131,14 @@ export default function Contracts() {
         <div className="panel divide-y">
           {filtered.map((doc) => {
             const contractExpiry = getContractExpiry((doc as any).content);
+            const reference = (doc as any).content.num_contrat as string | undefined;
+            // Le titre stocké est « Contrat de travail - <Nom> » : on n'affiche que le nom.
+            const workerName =
+              (doc.title ?? "")
+                .replace(/^Contrat\s+de\s+travail\s*[-–—:]\s*/i, "")
+                .trim() ||
+              (doc as any).workers?.full_name ||
+              "Employé non renseigné";
             const rowTint =
               contractExpiry?.status === "expired"
                 ? "bg-destructive/5"
@@ -147,10 +155,24 @@ export default function Contracts() {
                   <FileText className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{doc.title}</p>
+                  <p className="truncate font-medium">
+                    {doc.worker_id ? (
+                      <Link
+                        to={`/workers/${doc.worker_id}`}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {workerName}
+                      </Link>
+                    ) : (
+                      workerName
+                    )}
+                  </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {(doc as any).workers?.full_name ?? "Employé non renseigné"}
-                    {(doc as any).reference ? ` · ${(doc as any).reference}` : ""}
+                     {reference && (
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    {reference}
+                  </span>
+                )}
                     {` · ${formatDateFR(doc.created_at)}`}
                   </p>
                 </div>
