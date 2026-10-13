@@ -1,11 +1,11 @@
 import { DateInput } from "@/components/ui/date-input";
 import { formatDateFR } from "@/lib/date-utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   getWorkers, getConges, createConge, createCongesBulk, updateConge, deleteConge,
-  congeDuration, CONGE_TYPES, type CongeType, type CongeWithWorker
+  congeDuration, congeDurationExcludingWeekend, CONGE_TYPES, type CongeType, type CongeWithWorker
 } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText, ArrowUp, ArrowDown, ArrowUpDown, Search } from "lucide-react";
+import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText, ArrowUp, ArrowDown, ArrowUpDown, Search, FileDown } from "lucide-react";
 import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
+import { generateRapportCongePdf } from "@/lib/rapport-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
@@ -195,6 +196,57 @@ export default function Conges() {
   const [droitSearch, setDroitSearch] = useState("");
   const [droitSort, setDroitSort] = useState<SortState>({ field: "name", dir: "asc" });
 
+  // ===== Rapport de congé par employé =====
+  // L'historique complet n'est chargé qu'au clic (le tableau ne charge que la période).
+  const [rapportTarget, setRapportTarget] = useState<{ id: string; name: string } | null>(null);
+  const {
+    data: rapportConges,
+    isFetching: rapportFetching,
+    isError: rapportError,
+  } = useQuery({
+    queryKey: ["conges", "rapport", rapportTarget?.id],
+    queryFn: () => getConges(rapportTarget!.id),
+    enabled: !!rapportTarget,
+  });
+
+  const openRapport = (row: { id: string; name: string }) => {
+    if (rapportFetching) return;
+    setRapportTarget({ id: row.id, name: row.name });
+  };
+
+  // Génération déclenchée dès que l'historique de l'employé ciblé est disponible
+  useEffect(() => {
+    if (!rapportTarget) return;
+    if (rapportError) {
+      setRapportTarget(null);
+      toast.error("Erreur lors du chargement des congés");
+      return;
+    }
+    if (!rapportConges || rapportFetching) return;
+    const worker = workers?.find((w: any) => w.id === rapportTarget.id) as any;
+    if (!worker) {
+      setRapportTarget(null);
+      toast.error("Employé introuvable");
+      return;
+    }
+    generateRapportCongePdf({
+      worker: {
+        full_name: worker.full_name ?? rapportTarget.name,
+        matricule: worker.matricule ?? null,
+        department: worker.department ?? null,
+        hire_date: worker.hire_date ?? null,
+        date_debut_contrat: worker.date_debut_contrat ?? null,
+      },
+      conges: rapportConges ?? [],
+      periodFrom: DROIT_FROM,
+      periodTo: DROIT_TO,
+    })
+      .then(() => toast.success("Rapport de congé généré"))
+      .catch(() => toast.error("Erreur lors de la génération du rapport"));
+    setRapportTarget(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rapportConges, rapportTarget, rapportFetching, rapportError, workers]);
+
   const { data: droitConges } = useQuery({
     queryKey: ["conges", "droit", DROIT_FROM, DROIT_TO],
     queryFn: () => getConges(undefined, { from: DROIT_FROM, to: DROIT_TO }),
@@ -209,9 +261,15 @@ export default function Conges() {
         : 0;
       const mw = dayWorked / 30;
       const monthWorked = mw >= 12 ? 12 : mw < 0 ? 0 : Number(mw.toFixed(1));
-      const congeFait = (droitConges ?? [])
-        .filter((c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO)
-        .reduce((s, c) => s + congeDuration(c.start_date, c.end_date), 0);
+      const workerConges = (droitConges ?? []).filter(
+        (c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO,
+      );
+      const congeFait = workerConges.reduce((s, c) => s + congeDuration(c.start_date, c.end_date), 0);
+      // Même périmètre, en excluant les jours de repos (jeudi et vendredi)
+      const congeFaitHorsWeekend = workerConges.reduce(
+        (s, c) => s + congeDurationExcludingWeekend(c.start_date, c.end_date),
+        0,
+      );
       const congeDroit = dayWorked < 365 ? Math.max(0, dayWorked) * (30 / 365) : 30;
       return {
         id: w.id,
@@ -219,6 +277,7 @@ export default function Conges() {
         name: w.full_name ?? "—",
         monthWorked,
         congeFait,
+        congeFaitHorsWeekend,
         congeDroit,
         resteConge: congeDroit - congeFait,
         enterDate,
@@ -460,6 +519,7 @@ export default function Conges() {
                 <SortHeader label="Employée" field="name" sort={droitSort} setSort={setDroitSort} />
                 <SortHeader label="Month Worked" field="monthWorked" sort={droitSort} setSort={setDroitSort} align="right" />
                 <SortHeader label="Congé Fait" field="congeFait" sort={droitSort} setSort={setDroitSort} align="right" />
+                <SortHeader label="Congé fait sans weekend" field="congeFaitHorsWeekend" sort={droitSort} setSort={setDroitSort} align="right" />
                 <SortHeader label="Droit Congé" field="congeDroit" sort={droitSort} setSort={setDroitSort} align="right" />
                 <SortHeader label="Reste Congé" field="resteConge" sort={droitSort} setSort={setDroitSort} align="right" />
                 <SortHeader label="Date Entrée" field="enterDate" sort={droitSort} setSort={setDroitSort} />
@@ -475,9 +535,22 @@ export default function Conges() {
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-sm">{r.monthWorked}</td>
                     <td className="px-4 py-3 align-middle text-right text-sm">{r.congeFait}</td>
+                    <td className="px-4 py-3 align-middle text-right text-sm font-medium">{r.congeFaitHorsWeekend}</td>
                     <td className="px-4 py-3 align-middle text-right font-semibold">{r.congeDroit.toFixed(1)}</td>
                     <td className={`px-4 py-3 align-middle text-right font-semibold ${r.resteConge < 0 ? "text-destructive" : ""}`}>{r.resteConge.toFixed(1)}</td>
                     <td className="px-4 py-3 align-middle text-sm">{r.enterDate ? formatDateFR(r.enterDate) : "—"}</td>
+                    <td className="px-2 py-3 text-right align-middle">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Rapport de congé de ${r.name}`}
+                        title="Rapport de congé (PDF)"
+                        disabled={rapportFetching}
+                        onClick={() => openRapport({ id: r.id, name: r.name })}
+                      >
+                        <FileDown className="h-4 w-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
             </tbody>
