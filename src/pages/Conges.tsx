@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import CongesImportExcel from "@/components/CongesImportExcel";
+import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -500,8 +501,16 @@ export default function Conges() {
               />
             </div>
           </div>
-          <div className="ml-auto text-sm text-muted-foreground">
-            Total : <span className="font-semibold text-foreground">{droitRows.length}</span>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              Total : <span className="font-semibold text-foreground">{droitRows.length}</span>
+            </span>
+            <DroitCongeExcelExport
+              rows={droitRows}
+              periodFrom={DROIT_FROM}
+              periodTo={DROIT_TO}
+              disabled={droitRows.length === 0}
+            />
           </div>
         </div>
         {droitRows.length === 0 ? (
