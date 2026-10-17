@@ -16,6 +16,8 @@ interface Props {
   allowClear?: boolean;
   includeAll?: boolean; // adds an "All employees" option (returns "all")
   allLabel?: string;
+  /** Exclut les employés démissionnaires (date_demission renseignée) — sélecteurs de création. */
+  excludeResigned?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export default function WorkerAutocomplete({
   allowClear = false,
   includeAll = false,
   allLabel = "Tous les employés",
+  excludeResigned = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -43,7 +46,11 @@ export default function WorkerAutocomplete({
   );
 
   const filtered = useMemo(() => {
-    const list = workers ?? [];
+    // Les démissionnaires sortent des options, sauf s'ils sont déjà sélectionnés :
+    // en édition d'un document existant, l'employé doit rester affiché et resélectionnable.
+    const list = (workers ?? []).filter(
+      (w) => !excludeResigned || !(w as any).date_demission || w.id === value,
+    );
     const q = query.trim().toLowerCase();
     if (!q) return list.slice(0, 100);
     return list
@@ -52,7 +59,7 @@ export default function WorkerAutocomplete({
         return hay.includes(q);
       })
       .slice(0, 100);
-  }, [workers, query]);
+  }, [workers, query, excludeResigned, value]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);
@@ -126,7 +133,9 @@ export default function WorkerAutocomplete({
             </button>
           )}
           {filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun employé trouvé</p>
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {excludeResigned && !query.trim() ? "Aucun employé actif" : "Aucun employé trouvé"}
+            </p>
           ) : (
             filtered.map((w) => {
               const matricule = (w as any).matricule as string | undefined;

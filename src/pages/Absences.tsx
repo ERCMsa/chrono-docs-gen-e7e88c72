@@ -159,7 +159,7 @@ export default function Absences() {
                 {multiMode && !editing ? (
                   <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} />
                 ) : (
-                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} />
+                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned />
                 )}
               </div>
               {!editing && (
@@ -248,6 +248,8 @@ export default function Absences() {
             includeAll
             allLabel="Tous"
             className="h-9"
+            // Filtre : les resignataires restent selectionnables, sinon leurs
+            // absences passes deviennent impossibles a retrouver.
           />
         </div>
         <div>

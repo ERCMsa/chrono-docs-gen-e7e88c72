@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CONTRACT_DURATIONS, computeEndDate, getContractStatus, formatDateFR } from "@/lib/contract-utils";
 import { DEPARTMENTS } from "@/lib/departments";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 const emptyWorker: WorkerInsert = {
   full_name: "", phone: "", position: "", department: "", address: "", matricule: "",
@@ -485,7 +486,14 @@ export default function Workers() {
             const resignedAt = (w as any).date_demission;
             return (
               <Link key={w.id} to={`/workers/${w.id}`} className="block group">
-                <div className="h-full panel p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                <div
+                  className={cn(
+                    "h-full panel p-5 transition-all",
+                    resignedAt
+                      ? "bg-destructive/5 border-destructive/20 hover:border-destructive/30"
+                      : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                  )}
+                >
                   <div className="flex items-start gap-3">
                     <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-primary">
                       {initials(w.full_name)}                      {w.is_department_head && (
@@ -508,7 +516,7 @@ export default function Workers() {
                   <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4">
                     <div>
                       {resignedAt ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
                           <XCircle className="w-3.5 h-3.5" /> Parti le {formatDateFR(resignedAt)}
                         </span>
                       ) : hasContract ? (
@@ -557,9 +565,21 @@ export default function Workers() {
                     const hasContract = contractWorkerIds?.has(w.id) ?? false;
                     const resignedAt = (w as any).date_demission;
                     return (
-                      <tr key={w.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
+                      <tr
+                        key={w.id}
+                        className={cn(
+                          "border-b transition-colors last:border-0",
+                          resignedAt ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/40",
+                        )}
+                      >
                         <td className="px-4 py-3 align-middle">
-                          <Link to={`/workers/${w.id}`} className="flex items-center gap-3 font-medium hover:text-primary">
+                          <Link
+                            to={`/workers/${w.id}`}
+                            className={cn(
+                              "flex items-center gap-3 font-medium hover:underline",
+                              resignedAt ? "text-destructive" : "hover:text-primary",
+                            )}
+                          >
                             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">{initials(w.full_name)}</span>
                             <span>{w.full_name}</span>
                           </Link>
@@ -574,7 +594,7 @@ export default function Workers() {
                         </td>
                         <td className="px-4 py-3 align-middle">
                           {resignedAt ? (
-                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Démission</span>
+                            <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">Démission</span>
                           ) : hasContract ? (
                             <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">Contrat actif</span>
                           ) : (

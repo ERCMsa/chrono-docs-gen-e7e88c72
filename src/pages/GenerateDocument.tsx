@@ -494,7 +494,9 @@ export default function GenerateDocument() {
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Employé *</Label>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex-1 min-w-[280px] max-w-md">
-            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} />
+            {/* Sélection d'employé pour la création : resignataires exclus pour TOUS les
+                types de documents (contrat, bon de sortie, bon d'entrée, avertissement) */}
+            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} excludeResigned />
           </div>
         </div>
         {isContract && !workerId && (

@@ -277,6 +277,8 @@ export default function Conges() {
         resteConge: congeDroit - congeFait,
         enterDate,
         inPeriod,
+        // Sert uniquement à la mise en évidence visuelle des resignataires
+        resignedAt: (w as any).date_demission ?? null,
       };
     })
       // Les employés ayant démissionné avant le début de la période sont exclus
@@ -325,7 +327,7 @@ export default function Conges() {
                 {multiMode && !editing ? (
                   <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} />
                 ) : (
-                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} />
+                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned />
                 )}
               </div>
               <div>
@@ -385,6 +387,8 @@ export default function Conges() {
             includeAll
             allLabel="Tous"
             className="h-9"
+            // Filtre : les resignataires restent selectionnables, sinon leurs
+            // conges passes deviennent impossibles a retrouver.
           />
         </div>
         <div>
@@ -528,9 +532,14 @@ export default function Conges() {
 
             <tbody>
               {droitRows.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
+                  <tr
+                    key={r.id}
+                    className={`border-b last:border-0 transition-colors ${
+                      r.resignedAt ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/40"
+                    }`}
+                  >
                     <td className="px-4 py-3 align-middle text-sm">{r.matricule}</td>
-                    <td className="px-4 py-3 align-middle font-medium">
+                    <td className={`px-4 py-3 align-middle font-medium ${r.resignedAt ? "text-destructive" : ""}`}>
                       <Link to={`/workers/${r.id}`} className="hover:underline">{r.name}</Link>
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-sm">{r.monthWorked}</td>
