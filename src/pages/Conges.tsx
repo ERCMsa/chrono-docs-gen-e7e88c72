@@ -20,7 +20,6 @@ import { generateRapportCongePdf } from "@/lib/rapport-conge-pdf";
 import { toast } from "sonner";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
-import CongesImportExcel from "@/components/CongesImportExcel";
 import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
 import { DROIT_FROM, DROIT_TO, getCongeEntitlement } from "@/lib/conge-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -306,13 +305,6 @@ export default function Conges() {
     <div className="space-y-6">
       <PageHeader title="Congés" description="Gestion des demandes de congé">
         <div className="flex items-center gap-2">
-        <CongesImportExcel
-          workers={workers}
-          onImported={() => {
-            qc.invalidateQueries({ queryKey: ["conges"] });
-            qc.invalidateQueries({ queryKey: ["worker-conges"] });
-          }}
-        />
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nouveau congé</Button>
