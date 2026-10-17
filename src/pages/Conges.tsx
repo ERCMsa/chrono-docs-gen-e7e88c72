@@ -22,6 +22,7 @@ import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import CongesImportExcel from "@/components/CongesImportExcel";
 import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
+import { DROIT_FROM, DROIT_TO, getCongeEntitlement } from "@/lib/conge-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -190,9 +191,8 @@ export default function Conges() {
   }, [conges, sort]);
 
   // ===== Droit de Congé =====
-  const DROIT_FROM = "2026-01-01";
-  const DROIT_TO = "2027-01-01";
-  const REF_DATE = new Date(2026, 5, 30); // 2026-06-30
+  // Période, date de référence et calcul du droit de congé : voir @/lib/conge-utils
+  // (source de vérité partagée avec l'export Excel et le rapport PDF).
 
   const [droitSearch, setDroitSearch] = useState("");
   const [droitSort, setDroitSort] = useState<SortState>({ field: "name", dir: "asc" });
@@ -237,6 +237,7 @@ export default function Conges() {
         department: worker.department ?? null,
         hire_date: worker.hire_date ?? null,
         date_debut_contrat: worker.date_debut_contrat ?? null,
+        date_demission: worker.date_demission ?? null,
       },
       conges: rapportConges ?? [],
       periodFrom: DROIT_FROM,
@@ -256,12 +257,7 @@ export default function Conges() {
   const droitRows = useMemo(() => {
     const q = droitSearch.trim().toLowerCase();
     const list = (workers ?? []).map((w: any) => {
-      const enterDate = w.hire_date ?? w.date_debut_contrat ?? null;
-      const dayWorked = enterDate
-        ? Math.floor((REF_DATE.getTime() - new Date(enterDate).getTime()) / 86400000)
-        : 0;
-      const mw = dayWorked / 30;
-      const monthWorked = mw >= 12 ? 12 : mw < 0 ? 0 : Number(mw.toFixed(1));
+      const { enterDate, dayWorked, monthWorked, congeDroit, inPeriod } = getCongeEntitlement(w);
       const workerConges = (droitConges ?? []).filter(
         (c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO,
       );
@@ -271,7 +267,6 @@ export default function Conges() {
         (s, c) => s + congeDurationExcludingWeekend(c.start_date, c.end_date),
         0,
       );
-      const congeDroit = dayWorked < 365 ? Math.max(0, dayWorked) * (30 / 365) : 30;
       return {
         id: w.id,
         matricule: w.matricule ?? "—",
@@ -282,8 +277,12 @@ export default function Conges() {
         congeDroit,
         resteConge: congeDroit - congeFait,
         enterDate,
+        inPeriod,
       };
-    }).filter((r) => !q || `${r.name} ${r.matricule}`.toLowerCase().includes(q));
+    })
+      // Les employés ayant démissionné avant le début de la période sont exclus
+      .filter((r) => r.inPeriod)
+      .filter((r) => !q || `${r.name} ${r.matricule}`.toLowerCase().includes(q));
     return list.sort((a, b) => {
       const field = droitSort.field;
       // Matricule contains numbers -> sort numerically, not as strings

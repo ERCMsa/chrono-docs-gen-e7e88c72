@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PERIOD_START_ISO, PERIOD_END_ISO } from "@/lib/conge-utils";
 
 export interface DroitCongeExportRow {
   matricule: string;
@@ -81,7 +82,7 @@ export default function DroitCongeExcelExport({ rows, periodFrom, periodTo, clas
       const totalHorsWeekend = rows.reduce((s, r) => s + (r.congeFaitHorsWeekend || 0), 0);
       const totalDroit = rows.reduce((s, r) => s + (r.congeDroit || 0), 0);
 
-      const headerRowIdx = 5; // 0-based
+      const headerRowIdx = 6; // 0-based
       const firstDataRow = headerRowIdx + 2; // 1-based dans la feuille
       const lastDataRow = firstDataRow + rows.length - 1;
 
@@ -90,6 +91,7 @@ export default function DroitCongeExcelExport({ rows, periodFrom, periodTo, clas
         ["Période", `du ${fmtDateFR(periodFrom)} au ${fmtDateFR(periodEnd)}`],
         ["Généré le", generatedAt],
         ["Jours de repos exclus", "jeudi et vendredi"],
+        ["Exercice (droit de congé)", `du ${fmtDateFR(PERIOD_START_ISO)} au ${fmtDateFR(PERIOD_END_ISO)}`],
         [],
         HEADERS,
         ...rows.map((r) => [

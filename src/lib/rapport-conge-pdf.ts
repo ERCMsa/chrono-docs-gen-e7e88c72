@@ -5,6 +5,7 @@ import {
   congeDuration,
   congeDurationExcludingWeekend,
 } from "./supabase-helpers";
+import { getCongeEntitlement, PERIOD_START_ISO, PERIOD_END_ISO } from "./conge-utils";
 import logoErcm from "@/assets/logo-ercm.png";
 
 export interface RapportCongeWorker {
@@ -13,12 +14,21 @@ export interface RapportCongeWorker {
   department?: string | null;
   hire_date?: string | null;
   date_debut_contrat?: string | null;
+  /** Date de démission : plafonne les jours travaillés dans le rapport. */
+  date_demission?: string | null;
 }
 
 function fmtDateFR(iso?: string | null): string {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/** Dernier jour inclus de la période (periodTo est exclusif). */
+function lastDayOfPeriod(periodTo: string): string {
+  const d = new Date(`${periodTo}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 async function imageToDataUrl(src: string): Promise<string> {
@@ -70,13 +80,10 @@ export async function generateRapportCongePdf(opts: {
     parType.set(c.conge_type, cur);
   }
 
-  // Droits de la période en cours (loi 30/365, plafonné à 30) — même règle que l'écran
+  // Droits de la période en cours : calcul partagé avec le tableau « Droit de Congé »
+  // (même date de référence, même plafonnement à la date de démission).
   const enterDate = worker.hire_date ?? worker.date_debut_contrat ?? null;
-  const refDate = new Date();
-  const dayWorked = enterDate
-    ? Math.floor((refDate.getTime() - new Date(enterDate).getTime()) / 86400000)
-    : 0;
-  const droitConge = dayWorked < 365 ? Math.max(0, dayWorked) * (30 / 365) : 30;
+  const { dayWorked, congeDroit } = getCongeEntitlement(worker);
   const congeFaitPeriode = sorted
     .filter((c) => c.start_date >= periodFrom && c.start_date < periodTo)
     .reduce((s, c) => s + congeDuration(c.start_date, c.end_date), 0);
@@ -120,7 +127,9 @@ export async function generateRapportCongePdf(opts: {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.setTextColor(...muted);
-  pdf.text(`Période de référence : du ${fmtDateFR(periodFrom)} au ${fmtDateFR(periodTo)}`, pageW / 2, y, { align: "center" });
+  pdf.text(`Congés pris du ${fmtDateFR(periodFrom)} au ${fmtDateFR(lastDayOfPeriod(periodTo))}`, pageW / 2, y, { align: "center" });
+  y += 4;
+  pdf.text(`Exercice de calcul du droit : du ${fmtDateFR(PERIOD_START_ISO)} au ${fmtDateFR(PERIOD_END_ISO)}`, pageW / 2, y, { align: "center" });
   y += 4;
   pdf.text("Jours de repos retenus : jeudi et vendredi", pageW / 2, y, { align: "center" });
 
@@ -154,9 +163,9 @@ export async function generateRapportCongePdf(opts: {
   y += 6;
 
   const summary: Array<[string, string]> = [
-    ["Droit de congé", `${droitConge.toFixed(1)} j`],
+    ["Droit de congé", `${congeDroit.toFixed(1)} j`],
     ["Congé pris sur la période", `${congeFaitPeriode} j`],
-    ["Reste de congé", `${(droitConge - congeFaitPeriode).toFixed(1)} j`],
+    ["Reste de congé", `${(congeDroit - congeFaitPeriode).toFixed(1)} j`],
   ];
 
   const boxW = (contentW - 8) / 3;
