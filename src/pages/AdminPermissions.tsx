@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MODULES, ROLES, UserRole } from "@/lib/permissions";
+import { MODULES, MODULE_PAGES, ROLES, UserRole } from "@/lib/permissions";
+import { DEPARTMENTS } from "@/lib/departments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/PageHeader";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Plus, KeyRound, Loader2 } from "lucide-react";
 
 interface ProfileRow {
@@ -38,6 +40,8 @@ export default function AdminPermissions() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ProfileRow | null>(null);
   const [perms, setPerms] = useState<PermRow[]>([]);
+  const [userDepartments, setUserDepartments] = useState<string[]>([]);
+  const [deptCounts, setDeptCounts] = useState<Record<string, number>>({});
   const [savingPerms, setSavingPerms] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -46,12 +50,21 @@ export default function AdminPermissions() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles" as any)
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: deps }] = await Promise.all([
+      supabase
+        .from("profiles" as any)
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase.from("user_departments" as any).select("user_id,department"),
+    ]);
     if (error) toast.error(error.message);
     setUsers((data as any) ?? []);
+    const counts: Record<string, number> = {};
+    for (const d of (deps as any) ?? []) {
+      if (!d?.user_id) continue;
+      counts[d.user_id] = (counts[d.user_id] ?? 0) + 1;
+    }
+    setDeptCounts(counts);
     setLoading(false);
   };
 
@@ -59,17 +72,28 @@ export default function AdminPermissions() {
 
   const openEditor = async (u: ProfileRow) => {
     setEditing(u);
-    const { data } = await supabase
-      .from("permissions" as any)
-      .select("module,can_view,can_create,can_edit,can_delete")
-      .eq("user_id", u.id);
+    const [{ data }, { data: deps }] = await Promise.all([
+      supabase
+        .from("permissions" as any)
+        .select("module,can_view,can_create,can_edit,can_delete")
+        .eq("user_id", u.id),
+      supabase
+        .from("user_departments" as any)
+        .select("department")
+        .eq("user_id", u.id),
+    ]);
     const existing = (data as any as PermRow[]) ?? [];
     const merged = MODULES.map(m => existing.find(e => e.module === m.key) ?? blankPerm(m.key));
     setPerms(merged);
+    setUserDepartments(((deps as any) ?? []).map((d: any) => d.department).filter(Boolean));
   };
 
   const togglePerm = (module: string, field: keyof PermRow) => {
     setPerms(p => p.map(x => x.module === module ? { ...x, [field]: !x[field] } : x));
+  };
+
+  const toggleDepartment = (department: string) => {
+    setUserDepartments(d => (d.includes(department) ? d.filter(x => x !== department) : [...d, department]));
   };
 
   const savePerms = async () => {
@@ -77,9 +101,35 @@ export default function AdminPermissions() {
     setSavingPerms(true);
     const rows = perms.map(p => ({ ...p, user_id: editing.id }));
     const { error } = await supabase.from("permissions" as any).upsert(rows, { onConflict: "user_id,module" });
+    if (error) {
+      setSavingPerms(false);
+      toast.error(error.message);
+      return;
+    }
+    // Portée départements : on remplace l'ensemble (un upsert seul ne révoque rien)
+    const { error: delError } = await supabase
+      .from("user_departments" as any)
+      .delete()
+      .eq("user_id", editing.id);
+    if (delError) {
+      setSavingPerms(false);
+      toast.error(delError.message);
+      return;
+    }
+    if (userDepartments.length > 0) {
+      const { error: insError } = await supabase
+        .from("user_departments" as any)
+        .insert(userDepartments.map(department => ({ user_id: editing.id, department })));
+      if (insError) {
+        setSavingPerms(false);
+        toast.error(insError.message);
+        return;
+      }
+    }
     setSavingPerms(false);
-    if (error) toast.error(error.message);
-    else { toast.success("Permissions enregistrées"); setEditing(null); }
+    toast.success("Permissions enregistrées");
+    setEditing(null);
+    load();
   };
 
   const changeRole = async (u: ProfileRow, role: UserRole) => {
@@ -128,15 +178,16 @@ export default function AdminPermissions() {
               <TableHead>Nom d'utilisateur</TableHead>
               <TableHead>Nom complet</TableHead>
               <TableHead>Rôle</TableHead>
+              <TableHead>Départements</TableHead>
               <TableHead>Actif</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Chargement...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Chargement...</TableCell></TableRow>
             ) : users.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucun utilisateur</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Aucun utilisateur</TableCell></TableRow>
             ) : users.map(u => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">{u.username}</TableCell>
@@ -148,6 +199,17 @@ export default function AdminPermissions() {
                       {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell>
+                  {u.role === "ADMIN" ? (
+                    <span className="text-xs text-muted-foreground">Accès global</span>
+                  ) : (deptCounts[u.id] ?? 0) > 0 ? (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      {deptCounts[u.id]} département{(deptCounts[u.id] ?? 0) > 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Son département</span>
+                  )}
                 </TableCell>
                 <TableCell><Switch checked={u.is_active} onCheckedChange={() => toggleActive(u)} /></TableCell>
                 <TableCell className="text-right">
@@ -178,19 +240,56 @@ export default function AdminPermissions() {
               <TableBody>
                 {perms.map(p => {
                   const m = MODULES.find(x => x.key === p.module);
+                  const pages = (MODULE_PAGES as Record<string, { path: string; label: string }[]>)[p.module];
+                  const hasPage = !!pages && pages.length > 0;
                   return (
-                    <TableRow key={p.module}>
-                      <TableCell className="font-medium">{m?.label || p.module}</TableCell>
-                      <TableCell className="text-center"><Checkbox checked={p.can_view} onCheckedChange={() => togglePerm(p.module, "can_view")} /></TableCell>
-                      <TableCell className="text-center"><Checkbox checked={p.can_create} onCheckedChange={() => togglePerm(p.module, "can_create")} /></TableCell>
-                      <TableCell className="text-center"><Checkbox checked={p.can_edit} onCheckedChange={() => togglePerm(p.module, "can_edit")} /></TableCell>
-                      <TableCell className="text-center"><Checkbox checked={p.can_delete} onCheckedChange={() => togglePerm(p.module, "can_delete")} /></TableCell>
+                    <TableRow key={p.module} className={cn(!hasPage && "opacity-60")}>
+                      <TableCell className="font-medium">
+                        {m?.label || p.module}
+                        <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                          {hasPage ? pages.map((pg) => pg.label).join(" • ") : "Aucun écran"}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-center"><Checkbox disabled={!hasPage} checked={p.can_view} onCheckedChange={() => togglePerm(p.module, "can_view")} /></TableCell>
+                      <TableCell className="text-center"><Checkbox disabled={!hasPage} checked={p.can_create} onCheckedChange={() => togglePerm(p.module, "can_create")} /></TableCell>
+                      <TableCell className="text-center"><Checkbox disabled={!hasPage} checked={p.can_edit} onCheckedChange={() => togglePerm(p.module, "can_edit")} /></TableCell>
+                      <TableCell className="text-center"><Checkbox disabled={!hasPage} checked={p.can_delete} onCheckedChange={() => togglePerm(p.module, "can_delete")} /></TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
           </div>
+
+          {/* Portée départements */}
+          <div className="border rounded-lg p-4">
+            <p className="text-sm font-semibold">Départements visibles</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              L'utilisateur ne verra que les employés de ces départements. Sans attribution,
+              il ne voit que son propre département.
+            </p>
+            {editing?.role === "ADMIN" ? (
+              <p className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Accès global (ADMIN)
+              </p>
+            ) : (
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {DEPARTMENTS.map(d => (
+                  <label
+                    key={d}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={userDepartments.includes(d)}
+                      onCheckedChange={() => toggleDepartment(d)}
+                    />
+                    <span className="truncate">{d}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Annuler</Button>
             <Button onClick={savePerms} disabled={savingPerms}>

@@ -18,6 +18,7 @@ import { Plus, CalendarRange, Trash2, Pencil, Filter, FileText, ArrowUp, ArrowDo
 import { generateTitreCongePdf } from "@/lib/titre-conge-pdf";
 import { generateRapportCongePdf } from "@/lib/rapport-conge-pdf";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
@@ -76,6 +77,7 @@ function compareValues(a: any, b: any, dir: "asc" | "desc") {
 
 export default function Conges() {
   const qc = useQueryClient();
+  const { visibleDepartments, isGlobalScope, can } = useAuth();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CongeWithWorker | null>(null);
   const [workerId, setWorkerId] = useState("");
@@ -307,6 +309,7 @@ export default function Conges() {
     <div className="space-y-6">
       <PageHeader title="Congés" description="Gestion des demandes de congé">
         <div className="flex items-center gap-2">
+        {can("leave", "create") && (
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nouveau congé</Button>
@@ -327,7 +330,7 @@ export default function Conges() {
                 {multiMode && !editing ? (
                   <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} />
                 ) : (
-                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned />
+                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned allowedDepartments={isGlobalScope ? undefined : visibleDepartments} />
                 )}
               </div>
               <div>
@@ -365,6 +368,7 @@ export default function Conges() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
         </div>
       </PageHeader>
 
@@ -469,8 +473,12 @@ export default function Conges() {
                     <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[250px] truncate">{c.reason ?? "—"}</td>
                     <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
                       <Button variant="ghost" size="sm" title="Titre de congé (PDF)" onClick={() => generateTitreCongePdf(c)}><FileText className="w-4 h-4 text-primary" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer ce congé ?")) delMut.mutate(c.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      {can("leave", "edit") && (
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
+                      )}
+                      {can("leave", "delete") && (
+                        <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer ce congé ?")) delMut.mutate(c.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      )}
                     </td>
                   </tr>
                 );

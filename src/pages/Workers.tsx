@@ -34,7 +34,7 @@ type SortKey = "full_name" | "matricule" | "position" | "department" | "hire_dat
 export default function Workers() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { role, isAdmin } = useAuth();
+  const { role, isAdmin, isGlobalScope, visibleDepartments, canAccessDepartment, can } = useAuth();
   const isGlobal = isAdmin() || role === "RH";
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...emptyWorker });
@@ -59,10 +59,13 @@ export default function Workers() {
     () => [...new Set((workers ?? []).map((w) => w.position ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
     [workers],
   );
-  const departmentOptions = useMemo(
-    () => [...new Set((workers ?? []).map((w) => w.department ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
-    [workers],
-  );
+  const departmentOptions = useMemo(() => {
+    const all = [...new Set((workers ?? []).map((w) => w.department ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    // Un utilisateur à portée restreinte ne doit pas pouvoir filtrer sur un
+    // département qu'il ne voit pas.
+    if (isGlobalScope) return all;
+    return all.filter((d) => canAccessDepartment(d));
+  }, [workers, isGlobalScope, canAccessDepartment]);
 
   const DATE_FIELDS = ["date_naissance", "hire_date", "date_debut_contrat", "date_fin_contrat", "date_demission"];
   const sanitize = (obj: Record<string, any>) => {
@@ -130,8 +133,11 @@ export default function Workers() {
       (!hireFrom || (!!hireDate && hireDate >= hireFrom)) &&
       (!hireTo || (!!hireDate && hireDate <= hireTo));
 
+    // Portée : l'utilisateur ne voit que les employés de ses départements
+    const matchesScope = canAccessDepartment(w.department);
+
     return matchesSearch && matchesStatus && matchesPosition && matchesDepartment &&
-      matchesSexe && matchesContract && matchesHire;
+      matchesSexe && matchesContract && matchesHire && matchesScope;
   });
 
   const sortedWorkers = [...(filtered ?? [])].sort((a, b) => {
@@ -204,16 +210,26 @@ export default function Workers() {
     <div className="space-y-6">
       <PageHeader
         title="Employés"
-        description={isGlobal ? "Gérez vos employés" : "Employés de votre département"}
+        description={
+          isGlobalScope
+            ? "Gérez vos employés"
+            : visibleDepartments.length > 1
+              ? "Employés de vos départements"
+              : "Employés de votre département"
+        }
       >
-        {!isGlobal && role && (
+        {!isGlobalScope && visibleDepartments.length > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-            <Building2 className="w-3.5 h-3.5" /> Département : {role}
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
           </span>
         )}
         {/* <Button variant="outline" onClick={() => setImportOpen(true)}>
           <Upload className="w-4 h-4 mr-2" />Importer Excel
         </Button> */}
+        {can("employees", "create") && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Ajouter</Button>
@@ -356,6 +372,7 @@ export default function Workers() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </PageHeader>
 
       <ImportWorkersDialog open={importOpen} onOpenChange={setImportOpen} />
@@ -529,14 +546,16 @@ export default function Workers() {
                         </span>
                       )}
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/workers/${w.id}?edit=1`); }}
-                    >
-                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Modifier
-                    </Button>
+                    {can("employees", "edit") && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/workers/${w.id}?edit=1`); }}
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1.5" /> Modifier
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -602,7 +621,9 @@ export default function Workers() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right align-middle">
-                          <Button variant="ghost" size="sm" onClick={() => navigate(`/workers/${w.id}?edit=1`)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
+                          {can("employees", "edit") && (
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`/workers/${w.id}?edit=1`)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
+                          )}
                         </td>
                       </tr>
                     );

@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import { Download, Save, Printer, Plus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import DocumentPreview from "@/components/DocumentPreview";
 import ContractPreview from "@/components/ContractPreview";
@@ -246,6 +247,7 @@ export default function GenerateDocument() {
   const { type, id: editId } = useParams<{ type: string; id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { visibleDepartments, isGlobalScope, can } = useAuth();
   const routeType = type as DocType;
   const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree";
   const isEdit = !!editId;
@@ -496,7 +498,7 @@ export default function GenerateDocument() {
           <div className="flex-1 min-w-[280px] max-w-md">
             {/* Sélection d'employé pour la création : resignataires exclus pour TOUS les
                 types de documents (contrat, bon de sortie, bon d'entrée, avertissement) */}
-            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} excludeResigned />
+            <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} excludeResigned allowedDepartments={isGlobalScope ? undefined : visibleDepartments} />
           </div>
         </div>
         {isContract && !workerId && (
@@ -575,9 +577,11 @@ export default function GenerateDocument() {
             <ContractForm formData={formData} setFormData={setFormData} worker={selectedWorker} />
 
             <div className="flex flex-wrap gap-3 pt-2 border-t border-border">
-              <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
-                <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
-              </Button>
+              {can("documents", isEdit ? "edit" : "create") && (
+                <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
+                  <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
+                </Button>
+              )}
               <Button onClick={() => window.print()} variant="outline">
                 <Printer className="w-4 h-4 mr-2" />Imprimer
               </Button>
@@ -693,9 +697,11 @@ export default function GenerateDocument() {
               )}
             </div>
             <div className="flex gap-3 pt-2 border-t border-border">
-              <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1">
-                <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
-              </Button>
+              {can("documents", isEdit ? "edit" : "create") && (
+                <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1">
+                  <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
+                </Button>
+              )}
             </div>
           </div>
 

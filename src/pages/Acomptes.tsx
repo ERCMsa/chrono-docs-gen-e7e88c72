@@ -47,6 +47,7 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2 }).format(Number(n) || 0);
@@ -83,6 +84,7 @@ function useWorkerStats(workers: WorkerExt[] | undefined, txs: AcompteTransactio
 }
 
 export default function Acomptes() {
+  const { can } = useAuth();
   const qc = useQueryClient();
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: txs } = useQuery({ queryKey: ["acomptes"], queryFn: () => getAcomptes() });
@@ -109,14 +111,18 @@ export default function Acomptes() {
         </span>
       </PageHeader>
 
-      <Tabs defaultValue="nouvelle" className="w-full">
+      <Tabs defaultValue={can("payroll", "create") ? "nouvelle" : "historique"} className="w-full">
         <TabsList className="w-full grid grid-cols-2 md:grid-cols-5 h-auto bg-transparent border-b rounded-none p-0 gap-0">
+          {can("payroll", "create") && (
           <TabsTrigger value="nouvelle" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent rounded-none py-3 gap-2">
             <Plus className="w-4 h-4" /> Nouvelle Opération
           </TabsTrigger>
+          )}
+          {can("payroll", "create") && (
           <TabsTrigger value="groupees" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent rounded-none py-3 gap-2">
             <Users className="w-4 h-4" /> Opérations Groupées
           </TabsTrigger>
+          )}
           <TabsTrigger value="historique" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent rounded-none py-3 gap-2">
             <Search className="w-4 h-4" /> Historique & Filtres
           </TabsTrigger>
@@ -271,6 +277,7 @@ function OperationsGroupees({
   workers: WorkerExt[];
   stats: Map<string, { acompte: number; dette: number; reglement: number }>;
 }) {
+  const { can } = useAuth();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(todayStr());
@@ -421,12 +428,16 @@ function OperationsGroupees({
             <Label className="text-xs text-muted-foreground mb-1 block">Date</Label>
             <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="h-10 w-44" />
           </div>
-          <Button onClick={appliquerRetenues} disabled={busy} variant="success">
-            <Check className="w-4 h-4 mr-2" /> Appliquer Retenues
-          </Button>
-          <Button onClick={solderAcomptes} disabled={busy} variant="warning">
-            <Receipt className="w-4 h-4 mr-2" /> Solder Acomptes
-          </Button>
+          {can("payroll", "edit") && (
+            <Button onClick={appliquerRetenues} disabled={busy} variant="success">
+              <Check className="w-4 h-4 mr-2" /> Appliquer Retenues
+            </Button>
+          )}
+          {can("payroll", "edit") && (
+            <Button onClick={solderAcomptes} disabled={busy} variant="warning">
+              <Receipt className="w-4 h-4 mr-2" /> Solder Acomptes
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -435,6 +446,7 @@ function OperationsGroupees({
 
 // ====================== HISTORIQUE ======================
 function Historique({ txs }: { txs: (AcompteTransaction & { workers?: any })[] }) {
+  const { can } = useAuth();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [from, setFrom] = useState("");
@@ -533,7 +545,9 @@ function Historique({ txs }: { txs: (AcompteTransaction & { workers?: any })[] }
                     <Link to={`/acomptes/${t.id}`}>
                       <Button variant="info" size="icon-sm"><Eye className="w-3.5 h-3.5" /></Button>
                     </Link>
-                    <Button variant="destructive" size="icon-sm" onClick={() => del(t.id)} className="ml-1"><Trash2 className="w-3.5 h-3.5" /></Button>
+                    {can("payroll", "delete") && (
+                      <Button variant="destructive" size="icon-sm" onClick={() => del(t.id)} className="ml-1"><Trash2 className="w-3.5 h-3.5" /></Button>
+                    )}
                   </td>
                 </tr>
               ))}

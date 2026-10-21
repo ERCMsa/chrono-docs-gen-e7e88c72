@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -19,6 +20,7 @@ const DOCUMENT_TYPES_SANS_CONTRAT = Object.entries(DOCUMENT_TYPES).filter(
 
 export default function Documents() {
   const queryClient = useQueryClient();
+  const { can } = useAuth();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -141,9 +143,11 @@ export default function Documents() {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  {can("documents", "delete") && (
+                    <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </div>
             );

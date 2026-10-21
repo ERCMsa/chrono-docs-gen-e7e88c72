@@ -19,8 +19,10 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ContractsImportExport() {
+  const { can } = useAuth();
   const queryClient = useQueryClient();
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
@@ -344,9 +346,11 @@ export default function ContractsImportExport() {
 
   return (
     <>
-      <Button onClick={() => setImportOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-        استيراد (Importer) <Upload className="w-4 h-4" />
-      </Button>
+      {can("documents", "create") && (
+        <Button onClick={() => setImportOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+          استيراد (Importer) <Upload className="w-4 h-4" />
+        </Button>
+      )}
       <Button onClick={handleExport} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
         تصدير (Exporter) <Download className="w-4 h-4" />
       </Button>

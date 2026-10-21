@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, CalendarX, Trash2, Pencil, Filter } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import { OBSERVATION_LIST_CHOICE, OBSERVATION_TYPE_LABEL, OBSERVATION_TYPE_STYLE, findObservation } from "@/data/observations";
@@ -27,6 +28,7 @@ const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet"
 
 export default function Absences() {
   const qc = useQueryClient();
+  const { visibleDepartments, isGlobalScope, can } = useAuth();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AbsenceWithWorker | null>(null);
   const [workerId, setWorkerId] = useState("");
@@ -139,6 +141,7 @@ export default function Absences() {
   return (
     <div className="space-y-6">
       <PageHeader title="Absences" description="Gestion des absences journalières">
+        {can("leave", "create") && (
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nouvelle absence</Button>
@@ -159,7 +162,7 @@ export default function Absences() {
                 {multiMode && !editing ? (
                   <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} />
                 ) : (
-                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned />
+                  <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned allowedDepartments={isGlobalScope ? undefined : visibleDepartments} />
                 )}
               </div>
               {!editing && (
@@ -234,6 +237,7 @@ export default function Absences() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </PageHeader>
 
       {/* Filters */}
@@ -308,8 +312,12 @@ export default function Absences() {
                   <td className="px-4 py-3 align-middle text-sm text-muted-foreground">{a.workers?.department ?? "—"}</td>
                   <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[300px] truncate">{a.reason ?? "—"}</td>
                   <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer cette absence ?")) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    {can("leave", "edit") && (
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
+                    )}
+                    {can("leave", "delete") && (
+                      <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer cette absence ?")) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWorker, getDocumentsByWorker, updateWorker, deleteWorker, getAcomptes, getAbsences, getConges, congeDuration, congeDurationExcludingWeekend, CONGE_TYPES, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { useAuth } from "@/contexts/AuthContext";
+import Forbidden from "@/pages/Forbidden";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +67,7 @@ export default function WorkerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState("apercu");
-  const { role } = useAuth();
+  const { role, can, canAccessDepartment } = useAuth();
   const canManageContracts = role === "ADMIN" || role === "RH";
 
   const { data: worker, isLoading: loadingWorker } = useQuery({
@@ -212,6 +213,11 @@ export default function WorkerDetail() {
   }
   if (!worker) return <p className="text-destructive">Employé introuvable</p>;
 
+  // Portée : un employé hors des départements de l'utilisateur est inaccessible
+  if (!canAccessDepartment(worker.department)) {
+    return <Forbidden message="Cet employé n'appartient pas à vos départements." />;
+  }
+
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
   const contractStatus = getContractStatus((worker as any).date_fin_contrat);
   const hasContractDoc = (documents ?? []).some((d: any) => d.document_type === "contract");
@@ -329,6 +335,7 @@ export default function WorkerDetail() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+        {can("employees", "edit") && (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" onClick={openEdit}><Pencil className="w-4 h-4 mr-2" />Modifier</Button>
@@ -475,7 +482,8 @@ export default function WorkerDetail() {
             </form>
           </DialogContent>
         </Dialog>
-        {canManageContracts && (
+        )}
+        {canManageContracts && can("employees", "edit") && (
           <RenewContractButton
             workerId={id!}
             workerName={worker?.full_name}
@@ -484,7 +492,9 @@ export default function WorkerDetail() {
             size="default"
           />
         )}
-        <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Supprimer</Button>
+        {can("employees", "delete") && (
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="w-4 h-4 mr-2" />Supprimer</Button>
+        )}
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { ModuleKey, PermissionAction, UserRole } from "@/lib/permissions";
+import type { ModuleKey, PermissionAction, UserRole, PermissionRow } from "@/lib/permissions";
+import { resolveVisibleDepartments, normalizeDepartment } from "@/lib/permissions";
 
 export interface Profile {
   id: string;
@@ -24,8 +25,18 @@ interface AuthContextValue {
   user: Profile | null;
   role: UserRole | null;
   permissions: Permission[];
+  /** Départements explicitement attribués à l'utilisateur (table user_departments). */
+  departments: string[];
+  /** Départements que l'utilisateur a le droit de voir (portée effective). */
+  visibleDepartments: string[];
+  /** true si l'utilisateur voit tous les départements (ADMIN / RH). */
+  isGlobalScope: boolean;
   loading: boolean;
   hasPermission: (module: ModuleKey | string, action: PermissionAction) => boolean;
+  /** Vérifie une action (create/edit/delete/view) sur un module. */
+  can: (module: ModuleKey | string, action: PermissionAction) => boolean;
+  /** true si l'utilisateur peut voir les employés du département donné. */
+  canAccessDepartment: (dept?: string | null) => boolean;
   isAdmin: () => boolean;
   signIn: (username: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -41,15 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const [{ data: prof }, { data: perms }] = await Promise.all([
+    const [{ data: prof }, { data: perms }, { data: deps }] = await Promise.all([
       supabase.from("profiles" as any).select("*").eq("id", uid).maybeSingle(),
       supabase.from("permissions" as any).select("module,can_view,can_create,can_edit,can_delete").eq("user_id", uid),
+      supabase.from("user_departments" as any).select("department").eq("user_id", uid),
     ]);
     setUser((prof as any) ?? null);
     setPermissions((perms as any) ?? []);
+    setDepartments(((deps as any) ?? []).map((d: any) => d.department).filter(Boolean));
   }, []);
 
   useEffect(() => {
@@ -60,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
         setPermissions([]);
+        setDepartments([]);
       }
     });
 
@@ -85,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setPermissions([]);
+    setDepartments([]);
   };
 
   const isAdmin = () => user?.role === "ADMIN" && user?.is_active === true;
@@ -101,6 +117,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Portée « employés » : départements visibles
+  const scope = resolveVisibleDepartments({
+    isAdmin: isAdmin(),
+    role: user?.role ?? null,
+    assigned: departments,
+  });
+
+  const canAccessDepartment = (dept?: string | null) => {
+    if (scope.global) return true;
+    const d = normalizeDepartment(dept);
+    // Un employé sans département n'est pas visible d'une portée restreinte
+    if (!d) return false;
+    return scope.departments.includes(d);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -108,8 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         role: user?.role ?? null,
         permissions,
+        departments,
+        visibleDepartments: scope.departments,
+        isGlobalScope: scope.global,
         loading,
         hasPermission,
+        can: (module, action) => hasPermission(module, action),
+        canAccessDepartment,
         isAdmin,
         signIn,
         signOut,

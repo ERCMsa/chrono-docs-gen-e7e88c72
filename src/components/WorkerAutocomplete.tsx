@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { normalizeDepartment } from "@/lib/permissions";
 import type { Worker } from "@/lib/supabase-helpers";
 
 interface Props {
@@ -18,6 +19,11 @@ interface Props {
   allLabel?: string;
   /** Exclut les employés démissionnaires (date_demission renseignée) — sélecteurs de création. */
   excludeResigned?: boolean;
+  /**
+   * Restreint les options aux employés de ces départements (portée utilisateur).
+   * Le département vide est traité comme non accessible.
+   */
+  allowedDepartments?: string[];
 }
 
 /**
@@ -35,6 +41,7 @@ export default function WorkerAutocomplete({
   includeAll = false,
   allLabel = "Tous les employés",
   excludeResigned = false,
+  allowedDepartments,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -46,11 +53,20 @@ export default function WorkerAutocomplete({
   );
 
   const filtered = useMemo(() => {
-    // Les démissionnaires sortent des options, sauf s'ils sont déjà sélectionnés :
+    // Le resignataire est retiré des options, sauf s'il est déjà sélectionné :
     // en édition d'un document existant, l'employé doit rester affiché et resélectionnable.
-    const list = (workers ?? []).filter(
-      (w) => !excludeResigned || !(w as any).date_demission || w.id === value,
-    );
+    // Même règle pour la portée départements : l'employé sélectionné reste atteignable.
+    const scope = allowedDepartments
+      ? new Set(allowedDepartments.map((d) => normalizeDepartment(d)).filter(Boolean))
+      : null;
+    const list = (workers ?? []).filter((w) => {
+      if (excludeResigned && (w as any).date_demission && w.id !== value) return false;
+      if (scope) {
+        const dept = normalizeDepartment((w as any).department);
+        if (!scope.has(dept) && w.id !== value) return false;
+      }
+      return true;
+    });
     const q = query.trim().toLowerCase();
     if (!q) return list.slice(0, 100);
     return list
@@ -59,7 +75,7 @@ export default function WorkerAutocomplete({
         return hay.includes(q);
       })
       .slice(0, 100);
-  }, [workers, query, excludeResigned, value]);
+  }, [workers, query, excludeResigned, allowedDepartments, value]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);
