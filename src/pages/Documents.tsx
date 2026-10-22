@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getDocuments, deleteDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Trash2, CheckCircle, Clock, Search, Eye } from "lucide-react";
+import { FileText, Trash2, CheckCircle, Clock, Search, Eye, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
@@ -20,7 +20,7 @@ const DOCUMENT_TYPES_SANS_CONTRAT = Object.entries(DOCUMENT_TYPES).filter(
 
 export default function Documents() {
   const queryClient = useQueryClient();
-  const { can } = useAuth();
+  const { can, canDocument, canAccessWorker, visibleDepartments, isGlobalScope } = useAuth();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -36,7 +36,15 @@ export default function Documents() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
-  const nonContractDocuments = documents?.filter((doc) => doc.document_type !== "contract");
+  // Portée + permissions par type :
+  //  - un document hors des départements attribués n'est jamais affiché ;
+  //  - un document d'un type non autorisé (doc_*) n'est jamais affiché ;
+  //  - un document sans employé rattaché n'est visible qu'en portée globale.
+  const nonContractDocuments = documents?.filter((doc) =>
+    doc.document_type !== "contract" &&
+    canDocument(doc.document_type, "view") &&
+    (isGlobalScope || canAccessWorker((doc as any).workers)),
+  );
 
   const filtered = nonContractDocuments?.filter((doc) => {
     const matchesType = typeFilter === "all" || doc.document_type === typeFilter;
@@ -50,9 +58,12 @@ export default function Documents() {
   });
 
   const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
+  // Onglets : uniquement les types que l'utilisateur peut voir
   const documentTabs = [
     { key: "all", label: "Tous" },
-    ...DOCUMENT_TYPES_SANS_CONTRAT.map(([key, { label }]) => ({ key, label })),
+    ...DOCUMENT_TYPES_SANS_CONTRAT
+      .filter(([key]) => canDocument(key, "view"))
+      .map(([key, { label }]) => ({ key, label })),
   ];
 
   const countForType = (type: string) =>
@@ -66,6 +77,19 @@ export default function Documents() {
         title="Documents"
         description={`${nonContractDocuments?.length ?? 0} document${(nonContractDocuments?.length ?? 0) !== 1 ? "s" : ""} généré${(nonContractDocuments?.length ?? 0) !== 1 ? "s" : ""}`}
       >
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
+          </span>
+        )}
       </PageHeader>
 
       <div className="space-y-3">
@@ -143,7 +167,7 @@ export default function Documents() {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  {can("documents", "delete") && (
+                  {canDocument(doc.document_type, "delete") && (
                     <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
@@ -160,7 +184,9 @@ export default function Documents() {
           description={
             search || typeFilter !== "all"
               ? "Aucun document ne correspond à votre recherche. Essayez de modifier vos filtres ou votre terme de recherche."
-              : "Aucun document n'a encore été généré. Les documents créés apparaîtront ici."
+              : isGlobalScope
+                ? "Aucun document n'a encore été généré. Les documents créés apparaîtront ici."
+                : `Aucun document dans vos départements (${visibleDepartments.join(", ")}).`
           }
         />
       )}

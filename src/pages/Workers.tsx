@@ -218,7 +218,12 @@ export default function Workers() {
               : "Employés de votre département"
         }
       >
-        {!isGlobalScope && visibleDepartments.length > 0 && (
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
             <Building2 className="w-3.5 h-3.5" />
             {visibleDepartments.length === 1
@@ -634,6 +639,28 @@ export default function Workers() {
             </div>
           </TabsContent>
         </Tabs>
+      ) : statusFilter !== "all" && !isGlobalScope ? (
+        <EmptyState
+          icon={Users}
+          title="Aucun employé dans vos départements"
+          description={
+            search
+              ? `Aucun employé ne correspond à votre recherche dans vos départements (${visibleDepartments.join(", ")}).`
+              : `Aucun employé en poste dans vos départements (${visibleDepartments.join(", ")}). Affichez tous les statuts ou créez un employé.`
+          }
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => setStatusFilter("all")}>
+                Voir tous les statuts
+              </Button>
+              {can("employees", "create") && (
+                <Button onClick={() => setOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />Ajouter un employé
+                </Button>
+              )}
+            </div>
+          }
+        />
       ) : (
         <EmptyState
           icon={Users}
@@ -641,12 +668,16 @@ export default function Workers() {
           description={
             search
               ? "Aucun employé ne correspond à votre recherche."
-              : "Créez votre premier employé ou ajustez la recherche."
+              : isGlobalScope
+                ? "Créez votre premier employé ou ajustez la recherche."
+                : `Aucun employé dans vos départements (${visibleDepartments.join(", ")}).`
           }
           action={
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />Ajouter un employé
-            </Button>
+            can("employees", "create") && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />Ajouter un employé
+              </Button>
+            )
           }
         />
       )}

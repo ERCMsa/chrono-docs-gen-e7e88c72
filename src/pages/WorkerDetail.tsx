@@ -67,7 +67,7 @@ export default function WorkerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState("apercu");
-  const { role, can, canAccessDepartment } = useAuth();
+  const { role, can, canAccessDepartment, canDocument } = useAuth();
   const canManageContracts = role === "ADMIN" || role === "RH";
 
   const { data: worker, isLoading: loadingWorker } = useQuery({
@@ -222,6 +222,10 @@ export default function WorkerDetail() {
   const contractStatus = getContractStatus((worker as any).date_fin_contrat);
   const hasContractDoc = (documents ?? []).some((d: any) => d.document_type === "contract");
   const resignedAt = (worker as any).date_demission as string | null;
+  // Onglet Documents : seuls les types autorisés (doc_*) sont visibles
+  const visibleDocuments = (documents ?? []).filter(
+    (d: any) => canDocument(d.document_type, "view"),
+  );
 
   // Indicateurs de l'aperçu
   const anciennete = formatAnciennete(worker.hire_date);
@@ -540,7 +544,7 @@ export default function WorkerDetail() {
               </TabsTrigger>
               <TabsTrigger value="documents" className="gap-2 px-3 py-2">
                 Documents
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{documents?.length ?? 0}</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{visibleDocuments.length}</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -749,10 +753,10 @@ export default function WorkerDetail() {
         {/* ============ Onglet 5 : Documents ============ */}
         <TabsContent value="documents" className="mt-0 space-y-6">
       <div>
-        <h2 className="text-lg font-semibold mb-3">Documents ({documents?.length ?? 0})</h2>
+        <h2 className="text-lg font-semibold mb-3">Documents ({visibleDocuments.length})</h2>
         {loadingDocs ? (
           <ListRowsSkeleton rows={3} />
-        ) : documents && documents.length > 0 ? (
+        ) : visibleDocuments && visibleDocuments.length > 0 ? (
           <div className="panel overflow-hidden overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -765,7 +769,7 @@ export default function WorkerDetail() {
                 </tr>
               </thead>
               <tbody>
-                {documents.map((doc) => {
+                {visibleDocuments.map((doc) => {
                   const bon = isBon(doc.document_type);
                   const respOk = doc.validated_by_responsible;
                   const rhOk = doc.validated_by_rh;
@@ -805,7 +809,7 @@ export default function WorkerDetail() {
         ) : (
           <div className="panel px-6 py-10 text-center">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
-            <p className="text-muted-foreground">Aucun document pour cet employé</p>
+            <p className="text-muted-foreground">Aucun document autorisé pour cet employé</p>
           </div>
         )}
       </div>

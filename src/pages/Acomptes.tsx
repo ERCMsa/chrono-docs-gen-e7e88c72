@@ -45,6 +45,7 @@ import {
   Printer,
   X,
   Check,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -84,22 +85,35 @@ function useWorkerStats(workers: WorkerExt[] | undefined, txs: AcompteTransactio
 }
 
 export default function Acomptes() {
-  const { can } = useAuth();
+  const { can, visibleDepartments, isGlobalScope, canAccessWorker } = useAuth();
   const qc = useQueryClient();
   const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
   const { data: txs } = useQuery({ queryKey: ["acomptes"], queryFn: () => getAcomptes() });
-  const stats = useWorkerStats(workers as WorkerExt[], txs);
+
+  // Portée : employés et transactions hors des départements attribués sont
+  // retirés AVANT tout agrégat (stats, bilan, historique). Rien ne fuit
+  // par les totaux.
+  const scopedWorkers = useMemo(
+    () => (workers ?? []).filter((w) => canAccessWorker(w)),
+    [workers, canAccessWorker],
+  );
+  const scopedTxs = useMemo(
+    () => (txs ?? []).filter((t) => canAccessWorker(t.workers)),
+    [txs, canAccessWorker],
+  );
+
+  const stats = useWorkerStats(scopedWorkers as WorkerExt[], scopedTxs);
 
   const totals = useMemo(() => {
     let acompte = 0, dette = 0, reglement = 0;
-    (txs || []).forEach((t) => {
+    scopedTxs.forEach((t) => {
       const a = Number(t.amount) || 0;
       if (t.type === "acompte") acompte += a;
       else if (t.type === "dette") dette += a;
       else if (t.type === "reglement") reglement += a;
     });
     return { acompte, dette, reglement, reste: acompte + dette - reglement };
-  }, [txs]);
+  }, [scopedTxs]);
 
   return (
     <div className="space-y-4">
@@ -107,8 +121,21 @@ export default function Acomptes() {
         title="ERCM SA — Gestion des Acomptes et Dettes"
       >
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-          {workers?.length ?? 0} Employés enregistrés
+          {scopedWorkers.length} Employés enregistrés
         </span>
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
+          </span>
+        )}
       </PageHeader>
 
       <Tabs defaultValue={can("payroll", "create") ? "nouvelle" : "historique"} className="w-full">
@@ -135,19 +162,19 @@ export default function Acomptes() {
         </TabsList>
 
         <TabsContent value="nouvelle" className="mt-6">
-          <NouvelleOperation workers={(workers || []) as WorkerExt[]} />
+          <NouvelleOperation workers={(scopedWorkers || []) as WorkerExt[]} />
         </TabsContent>
         <TabsContent value="groupees" className="mt-6">
-          <OperationsGroupees workers={(workers || []) as WorkerExt[]} stats={stats} />
+          <OperationsGroupees workers={(scopedWorkers || []) as WorkerExt[]} stats={stats} />
         </TabsContent>
         <TabsContent value="historique" className="mt-6">
-          <Historique txs={txs || []} />
+          <Historique txs={scopedTxs || []} />
         </TabsContent>
         <TabsContent value="bilan" className="mt-6">
-          <BilanGeneral workers={(workers || []) as WorkerExt[]} stats={stats} totals={totals} />
+          <BilanGeneral workers={(scopedWorkers || []) as WorkerExt[]} stats={stats} totals={totals} />
         </TabsContent>
         <TabsContent value="employes" className="mt-6">
-          <GestionEmployes workers={(workers || []) as WorkerExt[]} />
+          <GestionEmployes workers={(scopedWorkers || []) as WorkerExt[]} />
         </TabsContent>
       </Tabs>
     </div>
@@ -410,7 +437,7 @@ function OperationsGroupees({
                           value={retentionInputs[w.id] ?? ""}
                           onChange={(e) => setRetentionInputs((p) => ({ ...p, [w.id]: e.target.value }))}
                         />
-                        <Button size="sm" variant="info" className="h-8" onClick={() => saveRetention(w.id)}>OK</Button>
+                        <Button size="sm" variant="info" className="h-8" onClick={() => saveRetention(w.id)} disabled={!can("payroll", "edit")}>OK</Button>
                       </div>
                     </td>
                   </tr>
@@ -570,6 +597,7 @@ function BilanGeneral({
   totals: { acompte: number; dette: number; reglement: number; reste: number };
 }) {
   const qc = useQueryClient();
+  const { can } = useAuth();
 
   const rows = useMemo(() => {
     return [...workers]
@@ -740,8 +768,12 @@ function BilanGeneral({
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={exportJson} variant="success"><Download className="w-4 h-4 mr-2" />Exporter (JSON)</Button>
-        <Button onClick={importJson} variant="info"><Upload className="w-4 h-4 mr-2" />Importer (JSON)</Button>
-        <Button onClick={remiseAZero} variant="destructive"><RotateCcw className="w-4 h-4 mr-2" />Remise à Zéro</Button>
+        {can("payroll", "create") && (
+          <Button onClick={importJson} variant="info"><Upload className="w-4 h-4 mr-2" />Importer (JSON)</Button>
+        )}
+        {can("payroll", "delete") && (
+          <Button onClick={remiseAZero} variant="destructive"><RotateCcw className="w-4 h-4 mr-2" />Remise à Zéro</Button>
+        )}
       </div>
 
       <div className="panel overflow-hidden">
@@ -800,6 +832,7 @@ function Card({ title, value, dot }: { title: string; value: string; dot: string
 // ====================== GESTION EMPLOYÉS ======================
 function GestionEmployes({ workers }: { workers: WorkerExt[] }) {
   const qc = useQueryClient();
+  const { can } = useAuth();
   const [matricule, setMatricule] = useState("");
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
@@ -838,10 +871,12 @@ function GestionEmployes({ workers }: { workers: WorkerExt[] }) {
           <Plus className="w-4 h-4" /> Ajouter un employé
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Input placeholder="Matricule" value={matricule} onChange={(e) => setMatricule(e.target.value)} className="h-11" />
-          <Input placeholder="Nom et Prénom" value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-11" />
-          <Input placeholder="Poste" value={position} onChange={(e) => setPosition(e.target.value)} className="h-11" />
-          <Button onClick={() => fullName.trim() ? add.mutate() : toast.error("Nom requis")} className="h-11">Ajouter</Button>
+          <Input placeholder="Matricule" value={matricule} onChange={(e) => setMatricule(e.target.value)} className="h-11" disabled={!can("employees", "create")} />
+          <Input placeholder="Nom et Prénom" value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-11" disabled={!can("employees", "create")} />
+          <Input placeholder="Poste" value={position} onChange={(e) => setPosition(e.target.value)} className="h-11" disabled={!can("employees", "create")} />
+          {can("employees", "create") && (
+            <Button onClick={() => fullName.trim() ? add.mutate() : toast.error("Nom requis")} className="h-11">Ajouter</Button>
+          )}
         </div>
       </div>
 
@@ -869,7 +904,9 @@ function GestionEmployes({ workers }: { workers: WorkerExt[] }) {
                     <td className="px-4 py-3 align-middle font-bold">{w.full_name}</td>
                     <td className="px-4 py-3 align-middle text-muted-foreground uppercase">{w.position || "—"}</td>
                     <td className="px-4 py-3 align-middle text-right">
-                      <Button size="sm" variant="destructive" className="h-8" onClick={() => { if (confirm(`Supprimer ${w.full_name} ?`)) del.mutate(w.id); }}>X</Button>
+                      {can("employees", "delete") && (
+                        <Button size="sm" variant="destructive" className="h-8" onClick={() => { if (confirm(`Supprimer ${w.full_name} ?`)) del.mutate(w.id); }}>X</Button>
+                      )}
                     </td>
                   </tr>
                 ))}

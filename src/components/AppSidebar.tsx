@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import logoErcm from "@/assets/logo-ercm.png";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModuleKey } from "@/lib/permissions";
+import { hasDocTypeRow } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -14,6 +15,8 @@ interface NavItem {
   label: string;
   icon: any;
   module?: ModuleKey;
+  /** Liste des types de documents concernés (permission par type). */
+  anyOfModules?: ModuleKey[];
   adminOnly?: boolean;
   rhOrAdmin?: boolean;
 }
@@ -29,8 +32,11 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
       { to: "/workers", label: "Employés", icon: Users, module: "employees" },
-      { to: "/documents", label: "Documents", icon: FileText, module: "documents" },
-      { to: "/contracts", label: "Contracts List", icon: Files, module: "documents" },
+      {
+        to: "/documents", label: "Documents", icon: FileText, module: "documents",
+        anyOfModules: ["doc_bon_sortie", "doc_bon_entree", "doc_avertissement"],
+      },
+      { to: "/contracts", label: "Contracts List", icon: Files, module: "documents", anyOfModules: ["doc_contract"] },
     ],
   },
   {
@@ -76,11 +82,19 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ onClose, collapsed = false, onToggleCollapsed }: AppSidebarProps) {
   const location = useLocation();
-  const { hasPermission, isAdmin, role, user } = useAuth();
+  const { hasPermission, isAdmin, role, user, permissions } = useAuth();
 
   const isVisible = (item: NavItem) => {
     if (item.adminOnly) return isAdmin();
     if (item.rhOrAdmin) return isAdmin() || role === "RH";
+    if (item.anyOfModules && item.module) {
+      // La route exige d'abord la permission « documents » (garde de route).
+      if (!isAdmin() && !hasPermission(item.module, "view")) return false;
+      // Comptes hérités (aucune ligne doc_*) : accueil « documents » couvre tout.
+      if (isAdmin() || !hasDocTypeRow(permissions)) return true;
+      // Mode précis : au moins un des types concernés doit être visible.
+      return item.anyOfModules.some((m) => hasPermission(m, "view"));
+    }
     if (item.module) return isAdmin() || hasPermission(item.module, "view");
     return true;
   };

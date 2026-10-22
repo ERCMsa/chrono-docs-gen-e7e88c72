@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import DocumentPreview from "@/components/DocumentPreview";
 import AvenantPreview, { EMPTY_AVENANT, type AvenantData } from "@/components/AvenantPreview";
+import Forbidden from "@/pages/Forbidden";
 import logoErcm from "@/assets/logo-ercm.png";
 
 import type { Json } from "@/integrations/supabase/types";
@@ -20,7 +21,7 @@ import type { Json } from "@/integrations/supabase/types";
 export default function DocumentView() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { user: authUser, role, isAdmin } = useAuth();
+  const { user: authUser, role, isAdmin, canDocument, canAccessWorker } = useAuth();
 
   const { data: doc, isLoading } = useQuery({
     queryKey: ["document", id],
@@ -78,6 +79,11 @@ export default function DocumentView() {
 
   const content = doc.content as Record<string, Json>;
   const docType = doc.document_type as keyof typeof DOCUMENT_TYPES;
+  // Portée : un document hors des départements attribués est inaccessible.
+  // (après le chargement uniquement, jamais pendant le skeleton)
+  if (!canAccessWorker((doc as any).workers)) {
+    return <Forbidden message="Ce document n'appartient pas à vos départements." />;
+  }
   const formData: Record<string, string> = {};
   for (const [k, v] of Object.entries(content)) {
     if (typeof v === "string") formData[k] = v;
@@ -108,11 +114,13 @@ export default function DocumentView() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to={`/generate/${docType}/${doc.id}`}>
-            <Button variant="outline" size="sm">
-              <Pencil className="w-4 h-4 mr-2" />Modifier
-            </Button>
-          </Link>
+          {canDocument(docType as string, "edit") && (
+            <Link to={`/generate/${docType}/${doc.id}`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="w-4 h-4 mr-2" />Modifier
+              </Button>
+            </Link>
+          )}
           <Button onClick={() => window.print()} variant="outline" size="sm">
             <Printer className="w-4 h-4 mr-2" />Imprimer
           </Button>

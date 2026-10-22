@@ -7,7 +7,8 @@ import { format, parseISO, startOfMonth, startOfYear, startOfDay } from "date-fn
 import { fr } from "date-fns/locale";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
-import { BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { BarChart3, Building2, PieChart as PieChartIcon } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Period = "daily" | "monthly" | "yearly";
 
@@ -40,9 +41,14 @@ const axisTick = { fill: "hsl(218 12% 45%)", fontSize: 12 };
 
 export default function Statistics() {
   const [period, setPeriod] = useState<Period>("monthly");
+  const { visibleDepartments, isGlobalScope, canDocument, canAccessWorker } = useAuth();
   const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: getDocuments });
 
-  const docs = documents ?? [];
+  // Portée + permissions par type : un document hors des départements
+  // attribués, ou d'un type non autorisé (doc_*), n'entre dans aucun graphique.
+  const docs = (documents ?? []).filter(
+    (d) => canDocument(d.document_type, "view") && (isGlobalScope || canAccessWorker((d as any).workers)),
+  );
 
   // Pie chart data
   const typeCounts = Object.entries(DOCUMENT_TYPES).map(([key, { label }]) => ({
@@ -78,6 +84,19 @@ export default function Statistics() {
         title="Statistiques"
         description="Analyse de la production documentaire"
       >
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
+          </span>
+        )}
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[170px]">
             <SelectValue />

@@ -247,7 +247,7 @@ export default function GenerateDocument() {
   const { type, id: editId } = useParams<{ type: string; id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { visibleDepartments, isGlobalScope, can } = useAuth();
+  const { visibleDepartments, isGlobalScope, canDocument } = useAuth();
   const routeType = type as DocType;
   const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree";
   const isEdit = !!editId;
@@ -577,7 +577,7 @@ export default function GenerateDocument() {
             <ContractForm formData={formData} setFormData={setFormData} worker={selectedWorker} />
 
             <div className="flex flex-wrap gap-3 pt-2 border-t border-border">
-              {can("documents", isEdit ? "edit" : "create") && (
+              {canDocument(docType, isEdit ? "edit" : "create") && (
                 <Button onClick={() => saveMutation.mutate()} disabled={(!workerId && !inlineWorkerName.trim()) || saveMutation.isPending} className="flex-1 min-w-[160px]">
                   <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
                 </Button>
@@ -697,7 +697,7 @@ export default function GenerateDocument() {
               )}
             </div>
             <div className="flex gap-3 pt-2 border-t border-border">
-              {can("documents", isEdit ? "edit" : "create") && (
+              {canDocument(docType, isEdit ? "edit" : "create") && (
                 <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1">
                   <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
                 </Button>

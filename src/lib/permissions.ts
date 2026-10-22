@@ -4,14 +4,14 @@ export const MODULES = [
   { key: "employees", label: "Employés" },
   { key: "payroll", label: "Paie / Acomptes" },
   { key: "leave", label: "Congés / Absences" },
-  { key: "attendance", label: "Présence" },
-  { key: "documents", label: "Documents" },
+  // « documents » contrôl l'accès aux ÉCRANS (routes gatées sur ce module) ;
+  // les 4 clés doc_* contrôlent ce qui est visible et supprimable par type.
+  { key: "documents", label: "Documents — accès aux écrans" },
+  { key: "doc_contract", label: "Documents — Contrats" },
+  { key: "doc_bon_sortie", label: "Documents — Bons de sortie" },
+  { key: "doc_bon_entree", label: "Documents — Bons d'entrée" },
+  { key: "doc_avertissement", label: "Documents — Avertissements" },
   { key: "reports", label: "Rapports / Statistiques" },
-  { key: "planning", label: "Planning" },
-  { key: "equipment", label: "Équipement" },
-  { key: "recruitment", label: "Recrutement" },
-  { key: "training", label: "Formation" },
-  { key: "announcements", label: "Annonces" },
   { key: "settings", label: "Paramètres" },
 ] as const;
 
@@ -28,6 +28,13 @@ export const MODULE_PAGES: Partial<Record<ModuleKey, { path: string; label: stri
     { path: "/documents", label: "Documents" },
     { path: "/generate/:type", label: "Génération" },
   ],
+  doc_contract: [
+    { path: "/generate/contract", label: "Contrat" },
+    { path: "/contracts", label: "Liste des contrats" },
+  ],
+  doc_bon_sortie: [{ path: "/generate/bon_sortie", label: "Bon de sortie" }],
+  doc_bon_entree: [{ path: "/generate/bon_entree", label: "Bon d'entrée" }],
+  doc_avertissement: [{ path: "/generate/avertissement", label: "Avertissement" }],
   leave: [
     { path: "/conges", label: "Congés" },
     { path: "/absences", label: "Absences" },
@@ -74,6 +81,55 @@ export function normalizeDepartment(dept?: string | null): string {
     .toUpperCase()
     .replace(/_/g, " ")
     .replace(/\s+/g, " ");
+}
+
+/** Modules de permission, un par type de document (nécessite l'accès « documents » pour les écrans). */
+export const DOC_TYPE_MODULES = [
+  "doc_contract",
+  "doc_bon_sortie",
+  "doc_bon_entree",
+  "doc_avertissement",
+] as const;
+
+/** Mapping document_type -> module de permission. */
+export const DOCUMENT_TYPE_MODULE: Record<string, ModuleKey> = {
+  contract: "doc_contract",
+  bon_sortie: "doc_bon_sortie",
+  bon_entree: "doc_bon_entree",
+  avertissement: "doc_avertissement",
+};
+
+/** Module de permissions d'un type de document, ou null si inconnu. */
+export function documentModule(type: string): ModuleKey | null {
+  return DOCUMENT_TYPE_MODULE[type] ?? null;
+}
+
+/**
+ * true si l'utilisateur possède AU MOINS UNE ligne doc_* (mode précis).
+ * ATTENTION : ne jamais tester `module.startsWith("doc")` — « documents »
+ * commence aussi par "doc" ; utiliser la liste explicite DOC_TYPE_MODULES.
+ */
+export function hasDocTypeRow(perms: { module: string }[] | undefined): boolean {
+  return !!perms?.some((p) => (DOC_TYPE_MODULES as readonly string[]).includes(p.module));
+}
+
+/**
+ * Permission d'une action sur un type de document.
+ * RÈGLE ANTI-BLOCAGE : si l'utilisateur n'a AUCUNE ligne doc_* (comptes
+ * hérités, jamais re-sauvegardés depuis l'ajout des 4 types), on retombe sur
+ * la permission « documents », afin qu'aucun écran ne devienne inaccessible.
+ */
+export function canDocumentType(
+  perms: PermissionRow[] | undefined,
+  type: string,
+  action: PermissionAction,
+  isAdmin: boolean,
+): boolean {
+  if (isAdmin) return true;
+  if (!hasDocTypeRow(perms)) return canAct(perms, "documents", action, false);
+  const module = documentModule(type);
+  if (!module) return false;
+  return canAct(perms, module, action, false);
 }
 
 /**

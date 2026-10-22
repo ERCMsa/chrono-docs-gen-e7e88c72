@@ -13,6 +13,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ContractExpirySummary, ContractExpiryBadge } from "@/components/ContractExpiryStatus";
 import RenewContractButton from "@/components/RenewContractButton";
 import SansContratExpiryList from "@/components/SansContratExpiryList";
+import { Building2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   getContractExpiry,
   latestContractsByWorker,
@@ -22,6 +24,7 @@ import {
 
 export default function Contracts() {
   const queryClient = useQueryClient();
+  const { can, canDocument, canAccessWorker, visibleDepartments, isGlobalScope } = useAuth();
   const [search, setSearch] = useState("");
   const [expirationFilter, setExpirationFilter] = useState<ExpiryFilter>("all");
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -37,9 +40,57 @@ export default function Contracts() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  // Employés sans document contrat : échéance implicite = date d'embauche + 1 an.
+  // L'ensemble « avec contrat » est dérivé des documents déjà chargés (aucun appel API).
+  const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
+
+  // ===== Portée + permission par type =====
+  // Un contrat hors des départements attribués, ou d'un type non autorisé,
+  // ne doit jamais apparaître dans les listes, les compteurs ni les échéances.
+  const scopedWorkers = useMemo(
+    () => (workers ?? []).filter((w) => canAccessWorker(w)),
+    [workers, canAccessWorker],
+  );
+  const scopedDocuments = useMemo(
+    () => (documents ?? []).filter(
+      (doc) => canDocument(doc.document_type, "view") && (isGlobalScope || canAccessWorker((doc as any).workers)),
+    ),
+    [documents, canDocument, canAccessWorker, isGlobalScope],
+  );
+
+  const workerIdsWithContract = useMemo(() => {
+    const ids = new Set<string>();
+    for (const doc of scopedDocuments) {
+      if (doc.document_type === "contract" && doc.worker_id) ids.add(doc.worker_id);
+    }
+    return ids;
+  }, [scopedDocuments]);
+  const sansContratExpiries = useMemo(
+    () => getSansContratExpiries(scopedWorkers, workerIdsWithContract),
+    [scopedWorkers, workerIdsWithContract],
+  );
+
+  // Employés démissionnaires : exclus des vues d'expiration (avec ou sans contrat),
+  // leurs contrats ne sont plus à renouveler.
+  const resignedWorkerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const w of scopedWorkers) {
+      if (w?.id && (w as any).date_demission) ids.add(w.id);
+    }
+    return ids;
+  }, [scopedWorkers]);
+
+  const contracts = useMemo(
+    () => scopedDocuments.filter((doc) => doc.document_type === "contract"),
+    [scopedDocuments],
+  );
+
   // Dernier contrat par employé : un contrat renouvelé garde son ancien document,
   // qui ne doit plus compter ni apparaître dans les filtres d'expiration.
-  const latestContracts = useMemo(() => latestContractsByWorker(documents), [documents]);
+  const latestContracts = useMemo(
+    () => latestContractsByWorker(scopedDocuments),
+    [scopedDocuments],
+  );
   const latestContractIds = useMemo(
     () => new Set([...latestContracts.values()].map((d) => d.id as string)),
     [latestContracts],
@@ -48,36 +99,6 @@ export default function Contracts() {
     !!doc.worker_id &&
     latestContracts.has(doc.worker_id) &&
     latestContracts.get(doc.worker_id)!.id !== doc.id;
-
-  // Employés sans document contrat : échéance implicite = date d'embauche + 1 an.
-  // L'ensemble « avec contrat » est dérivé des documents déjà chargés (aucun appel API).
-  const { data: workers } = useQuery({ queryKey: ["workers"], queryFn: getWorkers });
-  const workerIdsWithContract = useMemo(() => {
-    const ids = new Set<string>();
-    for (const doc of documents ?? []) {
-      if (doc.document_type === "contract" && doc.worker_id) ids.add(doc.worker_id);
-    }
-    return ids;
-  }, [documents]);
-  const sansContratExpiries = useMemo(
-    () => getSansContratExpiries(workers, workerIdsWithContract),
-    [workers, workerIdsWithContract],
-  );
-
-  // Employés démissionnaires : exclus des vues d'expiration (avec ou sans contrat),
-  // leurs contrats ne sont plus à renouveler.
-  const resignedWorkerIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const w of workers ?? []) {
-      if (w?.id && (w as any).date_demission) ids.add(w.id);
-    }
-    return ids;
-  }, [workers]);
-
-  const contracts = useMemo(
-    () => (documents ?? []).filter((doc) => doc.document_type === "contract"),
-    [documents],
-  );
 
   const filtered = contracts.filter((doc) => {
     const query = search.trim().toLocaleLowerCase();
@@ -99,12 +120,26 @@ export default function Contracts() {
       <PageHeader
         title="Contracts List"
         description={`${contracts.length} contrat${contracts.length !== 1 ? "s" : ""} de travail`}
-      />
+      >
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
+          </span>
+        )}
+      </PageHeader>
 
       {/* Expiration des contrats + recherche alignée à droite */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <ContractExpirySummary
-          documents={documents ?? []}
+          documents={scopedDocuments}
           active={expirationFilter}
           sansContrat={sansContratExpiries}
           excludedWorkerIds={resignedWorkerIds}
@@ -189,7 +224,8 @@ export default function Contracts() {
                 {contractExpiry?.status === "expired" &&
                   (doc as any).worker_id &&
                   !resignedWorkerIds.has((doc as any).worker_id) &&
-                  latestContractIds.has(doc.id) && (
+                  latestContractIds.has(doc.id) &&
+                  canDocument("contract", "create") && (
                     <RenewContractButton
                       workerId={(doc as any).worker_id}
                       workerName={(doc as any).workers?.full_name ?? null}
@@ -202,9 +238,11 @@ export default function Contracts() {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  {canDocument("contract", "delete") && (
+                    <Button variant="ghost" size="icon" aria-label={`Supprimer ${doc.title}`} onClick={() => setToDelete({ id: doc.id, title: doc.title })}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </div>
             );

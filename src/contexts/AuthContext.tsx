@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { ModuleKey, PermissionAction, UserRole, PermissionRow } from "@/lib/permissions";
-import { resolveVisibleDepartments, normalizeDepartment } from "@/lib/permissions";
+import { resolveVisibleDepartments, normalizeDepartment, canDocumentType } from "@/lib/permissions";
 
 export interface Profile {
   id: string;
@@ -37,6 +37,18 @@ interface AuthContextValue {
   can: (module: ModuleKey | string, action: PermissionAction) => boolean;
   /** true si l'utilisateur peut voir les employés du département donné. */
   canAccessDepartment: (dept?: string | null) => boolean;
+  /**
+   * true si l'utilisateur peut voir les données d'un employé selon sa portée
+   * (départements attribués). Un employé sans département n'est visible que
+   * d'une portée globale (ADMIN / RH).
+   */
+  canAccessWorker: (worker?: { department?: string | null } | null) => boolean;
+  /**
+   * Permission par TYPE de document (contrat, bon de sortie, bon d'entrée,
+   * avertissement), avec repli sur « documents » pour les comptes hérités
+   * sans aucune ligne doc_*.
+   */
+  canDocument: (type: string, action: PermissionAction) => boolean;
   isAdmin: () => boolean;
   signIn: (username: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -132,6 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return scope.departments.includes(d);
   };
 
+  const canAccessWorker = (worker?: { department?: string | null } | null) =>
+    canAccessDepartment(worker?.department);
+
+  const canDocument = (type: string, action: PermissionAction) =>
+    canDocumentType(permissions, type, action, isAdmin());
+
   return (
     <AuthContext.Provider
       value={{
@@ -146,6 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasPermission,
         can: (module, action) => hasPermission(module, action),
         canAccessDepartment,
+        canAccessWorker,
+        canDocument,
         isAdmin,
         signIn,
         signOut,

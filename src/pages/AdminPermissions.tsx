@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MODULES, MODULE_PAGES, ROLES, UserRole } from "@/lib/permissions";
+import { MODULES, MODULE_PAGES, ROLES, UserRole, DOC_TYPE_MODULES } from "@/lib/permissions";
 import { DEPARTMENTS } from "@/lib/departments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,7 +89,20 @@ export default function AdminPermissions() {
   };
 
   const togglePerm = (module: string, field: keyof PermRow) => {
-    setPerms(p => p.map(x => x.module === module ? { ...x, [field]: !x[field] } : x));
+    setPerms(p => {
+      let next = p.map(x => x.module === module ? { ...x, [field]: !x[field] } : x);
+      // Comodité : cocher « Documents — voir » coche la vue des 4 types de
+      // documents (décochable ensuite type par type).
+      if (module === "documents" && field === "can_view") {
+        const viewOn = next.find(x => x.module === "documents")?.can_view ?? false;
+        next = next.map(x =>
+          (DOC_TYPE_MODULES as readonly string[]).includes(x.module)
+            ? { ...x, can_view: viewOn }
+            : x,
+        );
+      }
+      return next;
+    });
   };
 
   const toggleDepartment = (department: string) => {
@@ -127,6 +140,14 @@ export default function AdminPermissions() {
       }
     }
     setSavingPerms(false);
+    // Avertissement (non bloquant) : accès aux écrans sans aucun type de document
+    const docRow = perms.find(p => p.module === "documents");
+    const anyTypeView = perms.some(
+      p => (DOC_TYPE_MODULES as readonly string[]).includes(p.module) && p.can_view,
+    );
+    if (docRow?.can_view && !anyTypeView) {
+      toast.warning("La page Documents restera vide.");
+    }
     toast.success("Permissions enregistrées");
     setEditing(null);
     load();
@@ -260,6 +281,14 @@ export default function AdminPermissions() {
               </TableBody>
             </Table>
           </div>
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">Documents — accès aux écrans</span> contrôle l'ouverture des pages
+            Documents et Génération ; les 4 types (contrat, bon de sortie, bon d'entrée, avertissement)
+            contrôlent ce qui est visible et supprimable.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Un compte ADMIN dispose automatiquement de toutes les permissions et de tous les départements.
+          </p>
 
           {/* Portée départements */}
           <div className="border rounded-lg p-4">

@@ -17,10 +17,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import { OBSERVATION_LIST_CHOICE, OBSERVATION_TYPE_LABEL, OBSERVATION_TYPE_STYLE, findObservation } from "@/data/observations";
+import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { ListRowsSkeleton } from "@/components/Skeletons";
+
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -28,7 +30,7 @@ const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet"
 
 export default function Absences() {
   const qc = useQueryClient();
-  const { visibleDepartments, isGlobalScope, can } = useAuth();
+  const { visibleDepartments, isGlobalScope, can, canAccessWorker } = useAuth();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AbsenceWithWorker | null>(null);
   const [workerId, setWorkerId] = useState("");
@@ -131,16 +133,31 @@ export default function Absences() {
   const filtered = useMemo(() => {
     if (!absences) return [];
     return absences.filter((a) => {
+      // Portée : l'absence d'un employé hors de vos départements est masquée
+      if (!canAccessWorker(a.workers)) return false;
       if (filterWorker !== "all" && a.worker_id !== filterWorker) return false;
       if (a.absence_date.slice(0, 4) !== filterYear) return false;
       return true;
     });
-  }, [absences, filterWorker, filterYear]);
+  }, [absences, filterWorker, filterYear, canAccessWorker]);
 
 
   return (
     <div className="space-y-6">
       <PageHeader title="Absences" description="Gestion des absences journalières">
+        {isGlobalScope ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            Accès global
+          </span>
+        ) : visibleDepartments.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Building2 className="w-3.5 h-3.5" />
+            {visibleDepartments.length === 1
+              ? `Département : ${visibleDepartments[0]}`
+              : `Départements : ${visibleDepartments.join(", ")}`}
+          </span>
+        )}
         {can("leave", "create") && (
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
@@ -252,6 +269,7 @@ export default function Absences() {
             includeAll
             allLabel="Tous"
             className="h-9"
+            allowedDepartments={isGlobalScope ? undefined : visibleDepartments}
             // Filtre : les resignataires restent selectionnables, sinon leurs
             // absences passes deviennent impossibles a retrouver.
           />
@@ -288,7 +306,11 @@ export default function Absences() {
         <EmptyState
           icon={CalendarX}
           title="Aucune absence"
-          description="Aucune absence enregistrée pour la période sélectionnée. Utilisez le bouton « Nouvelle absence » pour en ajouter."
+          description={
+            isGlobalScope
+              ? "Aucune absence enregistrée pour la période sélectionnée. Utilisez le bouton « Nouvelle absence » pour en ajouter."
+              : "Aucun résultat dans vos départements pour la période sélectionnée."
+          }
         />
       ) : (
         <div className="panel overflow-hidden overflow-x-auto">

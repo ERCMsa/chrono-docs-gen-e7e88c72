@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
+import { Building2 } from "lucide-react";
 import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
 import { DROIT_FROM, DROIT_TO, getCongeEntitlement } from "@/lib/conge-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -77,7 +78,7 @@ function compareValues(a: any, b: any, dir: "asc" | "desc") {
 
 export default function Conges() {
   const qc = useQueryClient();
-  const { visibleDepartments, isGlobalScope, can } = useAuth();
+  const { visibleDepartments, isGlobalScope, can, canAccessWorker } = useAuth();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CongeWithWorker | null>(null);
   const [workerId, setWorkerId] = useState("");
@@ -174,7 +175,9 @@ export default function Conges() {
   const [sort, setSort] = useState<SortState>({ field: "start_date", dir: "desc" });
 
   const filtered = useMemo(() => {
-    const list = [...(conges ?? [])];
+    // Portée : les congés d'un employé hors des départements de l'utilisateur
+    // ne quittent jamais la requête côté serveur, mais sont filtrés ici.
+    const list = (conges ?? []).filter((c) => canAccessWorker(c.workers));
     return list.sort((a, b) => {
       const pick = (c: any) => {
         switch (sort.field) {
@@ -189,7 +192,10 @@ export default function Conges() {
       };
       return compareValues(pick(a), pick(b), sort.dir);
     });
-  }, [conges, sort]);
+  }, [conges, sort, canAccessWorker]);
+
+  // Portée de l'utilisateur, pour l'état vide et la puce d'information
+  const scopeRestricted = !isGlobalScope;
 
   // ===== Droit de Congé =====
   // Période, date de référence et calcul du droit de congé : voir @/lib/conge-utils
@@ -257,7 +263,9 @@ export default function Conges() {
 
   const droitRows = useMemo(() => {
     const q = droitSearch.trim().toLowerCase();
-    const list = (workers ?? []).map((w: any) => {
+    // Portée : seuls les employés des départements attribués apparaissent
+    const scopedWorkers = (workers as any[] ?? []).filter((w) => canAccessWorker(w));
+    const list = scopedWorkers.map((w: any) => {
       const { enterDate, dayWorked, monthWorked, congeDroit, inPeriod } = getCongeEntitlement(w);
       const workerConges = (droitConges ?? []).filter(
         (c) => c.worker_id === w.id && c.start_date >= DROIT_FROM && c.start_date < DROIT_TO,
@@ -300,7 +308,7 @@ export default function Conges() {
       }
       return compareValues((a as any)[field], (b as any)[field], droitSort.dir);
     });
-  }, [workers, droitConges, droitSearch, droitSort]);
+  }, [workers, droitConges, droitSearch, droitSort, canAccessWorker]);
 
 
 
@@ -309,6 +317,19 @@ export default function Conges() {
     <div className="space-y-6">
       <PageHeader title="Congés" description="Gestion des demandes de congé">
         <div className="flex items-center gap-2">
+          {isGlobalScope ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              <Building2 className="w-3.5 h-3.5" />
+              Accès global
+            </span>
+          ) : visibleDepartments.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              <Building2 className="w-3.5 h-3.5" />
+              {visibleDepartments.length === 1
+                ? `Département : ${visibleDepartments[0]}`
+                : `Départements : ${visibleDepartments.join(", ")}`}
+            </span>
+          )}
         {can("leave", "create") && (
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
@@ -391,6 +412,7 @@ export default function Conges() {
             includeAll
             allLabel="Tous"
             className="h-9"
+            allowedDepartments={isGlobalScope ? undefined : visibleDepartments}
             // Filtre : les resignataires restent selectionnables, sinon leurs
             // conges passes deviennent impossibles a retrouver.
           />
@@ -437,7 +459,11 @@ export default function Conges() {
         <EmptyState
           icon={CalendarRange}
           title="Aucun congé"
-          description="Aucun congé enregistré pour la période et les filtres sélectionnés."
+          description={
+            scopeRestricted
+              ? "Aucun résultat dans vos départements pour la période et les filtres sélectionnés."
+              : "Aucun congé enregistré pour la période et les filtres sélectionnés."
+          }
         />
       ) : (
       <div className="panel overflow-hidden overflow-x-auto">
@@ -520,7 +546,11 @@ export default function Conges() {
           <EmptyState
             icon={CalendarRange}
             title="Aucune donnée"
-            description="Aucun employé à afficher pour la période du droit de congé."
+            description={
+              scopeRestricted
+                ? "Aucun résultat dans vos départements pour la période du droit de congé."
+                : "Aucun employé à afficher pour la période du droit de congé."
+            }
           />
         ) : (
         <div className="panel overflow-hidden overflow-x-auto">
