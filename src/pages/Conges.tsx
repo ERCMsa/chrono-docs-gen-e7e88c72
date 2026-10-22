@@ -349,7 +349,7 @@ export default function Conges() {
                   {multiMode && !editing ? "Employés *" : "Employé *"}
                 </Label>
                 {multiMode && !editing ? (
-                  <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} />
+                  <WorkerMultiSelect workers={workers} value={workerIds} onChange={setWorkerIds} allowedDepartments={isGlobalScope ? undefined : visibleDepartments} />
                 ) : (
                   <WorkerAutocomplete workers={workers} value={workerId} onChange={setWorkerId} disabled={!!editing} excludeResigned allowedDepartments={isGlobalScope ? undefined : visibleDepartments} />
                 )}

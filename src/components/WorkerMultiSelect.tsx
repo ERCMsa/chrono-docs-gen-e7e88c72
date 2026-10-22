@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { normalizeDepartment } from "@/lib/permissions";
 import type { Worker } from "@/lib/supabase-helpers";
 
 interface Props {
@@ -13,6 +14,11 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * Restreint les options aux employés de ces départements (portée utilisateur).
+   * Les employés déjà sélectionnés restent listés afin de pouvoir les retirer.
+   */
+  allowedDepartments?: string[];
 }
 
 export default function WorkerMultiSelect({
@@ -22,6 +28,7 @@ export default function WorkerMultiSelect({
   placeholder = "Sélectionner des employés...",
   disabled,
   className,
+  allowedDepartments,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -30,7 +37,16 @@ export default function WorkerMultiSelect({
   const selectedSet = useMemo(() => new Set(value), [value]);
 
   const filtered = useMemo(() => {
-    const list = workers ?? [];
+    const scope = allowedDepartments
+      ? new Set(allowedDepartments.map((d) => normalizeDepartment(d)).filter(Boolean))
+      : null;
+    const list = (workers ?? []).filter((w) => {
+      if (!scope) return true;
+      // Un employé déjà sélectionné reste toujours visible/retirable.
+      if (selectedSet.has(w.id)) return true;
+      const dept = normalizeDepartment((w as any).department);
+      return scope.has(dept);
+    });
     const q = query.trim().toLowerCase();
     if (!q) return list.slice(0, 200);
     return list
@@ -39,7 +55,7 @@ export default function WorkerMultiSelect({
         return hay.includes(q);
       })
       .slice(0, 200);
-  }, [workers, query]);
+  }, [workers, query, allowedDepartments, selectedSet]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);

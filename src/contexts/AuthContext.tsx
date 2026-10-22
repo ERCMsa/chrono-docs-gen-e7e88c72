@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { ModuleKey, PermissionAction, UserRole, PermissionRow } from "@/lib/permissions";
@@ -60,22 +60,40 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const USERNAME_DOMAIN = "ercmsa.internal";
 export const usernameToEmail = (u: string) => `${u.trim().toLowerCase()}@${USERNAME_DOMAIN}`;
 
+/** Exécute une requête Supabase sans jamais lever : { data, error }. */
+async function safeQuery(query: any): Promise<{ data: any; error: any }> {
+  try {
+    const res = await query;
+    return { data: res?.data ?? null, error: res?.error ?? null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Évite de répéter le même avertissement à chaque rafraîchissement. */
+  const warnDeptOnce = useRef(false);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const [{ data: prof }, { data: perms }, { data: deps }] = await Promise.all([
-      supabase.from("profiles" as any).select("*").eq("id", uid).maybeSingle(),
-      supabase.from("permissions" as any).select("module,can_view,can_create,can_edit,can_delete").eq("user_id", uid),
-      supabase.from("user_departments" as any).select("department").eq("user_id", uid),
+    const [prof, perms, deps] = await Promise.all([
+      safeQuery(supabase.from("profiles" as any).select("*").eq("id", uid).maybeSingle()),
+      safeQuery(supabase.from("permissions" as any).select("module,can_view,can_create,can_edit,can_delete").eq("user_id", uid)),
+      safeQuery(supabase.from("user_departments" as any).select("department").eq("user_id", uid)),
     ]);
-    setUser((prof as any) ?? null);
-    setPermissions((perms as any) ?? []);
-    setDepartments(((deps as any) ?? []).map((d: any) => d.department).filter(Boolean));
+    if (deps.error && !warnDeptOnce.current) {
+      warnDeptOnce.current = true;
+      console.warn(
+        "[Permissions] Table user_departments indisponible — repli sur le département du rôle. Exécutez: supabase db push",
+      );
+    }
+    setUser((prof.data as any) ?? null);
+    setPermissions((perms.data as any) ?? []);
+    setDepartments(((deps.data as any) ?? []).map((d: any) => d.department).filter(Boolean));
   }, []);
 
   useEffect(() => {
@@ -98,6 +116,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => sub.subscription.unsubscribe();
   }, [loadProfile]);
+
+  // Les permissions et les départements sont modifiés par un administrateur
+  // depuis un autre poste : on les recharge quand l'utilisateur revient sur
+  // l'application, pour qu'il n'ait pas à se reconnecter.
+  // Throttle : au plus un rafraîchissement toutes les 5 secondes.
+  const lastRefresh = useRef(0);
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    const maybeRefresh = () => {
+      const now = Date.now();
+      if (now - lastRefresh.current < 5000) return;
+      lastRefresh.current = now;
+      void loadProfile(uid);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", maybeRefresh);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", maybeRefresh);
+    };
+  }, [session?.user?.id, loadProfile]);
 
   const signIn = async (username: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

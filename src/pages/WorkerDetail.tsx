@@ -67,8 +67,13 @@ export default function WorkerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState("apercu");
-  const { role, can, canAccessDepartment, canDocument } = useAuth();
+  const { role, can, canAccessDepartment, canDocument, isGlobalScope } = useAuth();
   const canManageContracts = role === "ADMIN" || role === "RH";
+  // Un utilisateur restreint ne peut réaffecter un employé que dans ses
+  // départements (RLS).
+  const departmentChoices = isGlobalScope
+    ? DEPARTMENTS
+    : DEPARTMENTS.filter((d) => canAccessDepartment(d));
 
   const { data: worker, isLoading: loadingWorker } = useQuery({
     queryKey: ["worker", id],
@@ -416,7 +421,7 @@ export default function WorkerDetail() {
                     <Select value={editForm.department ?? ""} onValueChange={(v) => setEditForm((p) => ({ ...p, department: v }))}>
                       <SelectTrigger className="h-11"><SelectValue placeholder="Sélectionner un département" /></SelectTrigger>
                       <SelectContent>
-                        {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        {departmentChoices.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>

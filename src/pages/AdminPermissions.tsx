@@ -317,6 +317,10 @@ export default function AdminPermissions() {
                 ))}
               </div>
             )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              Les changements prendront effet à la prochaine interaction de l'utilisateur
+              avec l'application (ou à sa reconnexion).
+            </p>
           </div>
 
           <DialogFooter>

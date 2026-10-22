@@ -1,5 +1,5 @@
 import { DateInput } from "@/components/ui/date-input";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWorkers, createWorker, getWorkerIdsWithContract, type WorkerInsert } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,12 @@ export default function Workers() {
   const [form, setForm] = useState<Record<string, any>>({ ...emptyWorker });
   const [isDeptHead, setIsDeptHead] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  // Portée restreinte : on affiche TOUS les employés du département (actifs et
+  // démissionnaires), sinon la liste peut sembler vide. La portée globale
+  // conserve le filtre par défaut « actifs ».
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">(
+    isGlobalScope ? "active" : "all",
+  );
   // Advanced filters (applied to both cards and list views)
   const [positionFilter, setPositionFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
@@ -66,6 +71,21 @@ export default function Workers() {
     if (isGlobalScope) return all;
     return all.filter((d) => canAccessDepartment(d));
   }, [workers, isGlobalScope, canAccessDepartment]);
+
+  // Création : un utilisateur restreint ne choisit que dans ses départements
+  // (la politique RLS refuse d'ailleurs tout autre département).
+  const departmentChoices = useMemo(
+    () => (isGlobalScope ? DEPARTMENTS : DEPARTMENTS.filter((d) => canAccessDepartment(d))),
+    [isGlobalScope, canAccessDepartment],
+  );
+
+  // Pré-remplit le département à l'ouverture du formulaire de création.
+  useEffect(() => {
+    if (open && !isGlobalScope && !form.department) {
+      const first = departmentChoices[0];
+      if (first) setForm((p) => ({ ...p, department: first }));
+    }
+  }, [open, isGlobalScope, form.department, departmentChoices]);
 
   const DATE_FIELDS = ["date_naissance", "hire_date", "date_debut_contrat", "date_fin_contrat", "date_demission"];
   const sanitize = (obj: Record<string, any>) => {
@@ -309,7 +329,7 @@ export default function Workers() {
                     <Select value={form.department ?? ""} onValueChange={(v) => updateField("department", v)}>
                       <SelectTrigger className="h-11"><SelectValue placeholder="Sélectionner un département" /></SelectTrigger>
                       <SelectContent>
-                        {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        {departmentChoices.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
