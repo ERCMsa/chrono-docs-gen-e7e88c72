@@ -95,3 +95,21 @@ export function getCongeEntitlement(worker: CongeEntitlementInput): CongeEntitle
 
   return { enterDate, resignedAt, dayWorked, monthWorked, congeDroit, inPeriod };
 }
+
+/**
+ * Ligne du tableau « Droit de Congé », telle qu'affichée à l'écran et
+ * transmise aux exports Excel (source unique de vérité pour les colonnes).
+ */
+export type DroitCongeRow = {
+  id: string;
+  matricule: string;
+  name: string;
+  monthWorked: number;
+  congeFait: number;
+  congeFaitHorsWeekend: number;
+  congeDroit: number;
+  resteConge: number;
+  enterDate: string | null;
+  inPeriod: boolean;
+  resignedAt: string | null;
+};

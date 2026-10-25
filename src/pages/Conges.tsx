@@ -23,6 +23,7 @@ import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import WorkerMultiSelect from "@/components/WorkerMultiSelect";
 import { Building2 } from "lucide-react";
 import DroitCongeExcelExport from "@/components/DroitCongeExcelExport";
+import CongeMonthlyExcelExport from "@/components/CongeMonthlyExcelExport";
 import { DROIT_FROM, DROIT_TO, getCongeEntitlement } from "@/lib/conge-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
@@ -539,6 +540,13 @@ export default function Conges() {
               periodFrom={DROIT_FROM}
               periodTo={DROIT_TO}
               disabled={droitRows.length === 0}
+            />
+            <CongeMonthlyExcelExport
+              rows={droitRows}
+              conges={droitConges ?? []}
+              periodFrom={DROIT_FROM}
+              periodTo={DROIT_TO}
+              disabled={droitRows.length === 0 || (droitConges?.length ?? 0) === 0}
             />
           </div>
         </div>

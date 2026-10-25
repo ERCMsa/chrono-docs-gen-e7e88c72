@@ -3,17 +3,10 @@ import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PERIOD_START_ISO, PERIOD_END_ISO } from "@/lib/conge-utils";
+import type { DroitCongeRow } from "@/lib/conge-utils";
 
-export interface DroitCongeExportRow {
-  matricule: string;
-  name: string;
-  monthWorked: number;
-  congeFait: number;
-  congeFaitHorsWeekend: number;
-  congeDroit: number;
-  resteConge: number;
-  enterDate: string | null;
-}
+/** Type partagé avec le tableau « Droit de Congé » (source unique). */
+export type DroitCongeExportRow = DroitCongeRow;
 
 interface Props {
   /** Lignes du tableau telles qu'affichées (filtres de recherche inclus). */
