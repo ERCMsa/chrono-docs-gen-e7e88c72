@@ -14,4 +14,5 @@ export const DEPARTMENTS = [
   "STAGER",
   "HSE",
   "QUALITY",
+  "ADRAR",
 ];

@@ -429,6 +429,7 @@ export type Database = {
         | "UNITE_ONE"
         | "UNITE_TWO"
         | "GERANT"
+        | "ADRAR"
       validation_status: "PENDING" | "VALIDATED" | "REJECTED"
     }
     CompositeTypes: {

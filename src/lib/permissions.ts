@@ -178,5 +178,6 @@ export const ROLES = [
   "ADMIN","PRODUCTION","ENGINEER","MAINTENANCE","GDS","MONTAGE",
   "IT","GENIE_CIVIL","RH","FINANCE","CLIENT","HSE",
   "CNC","VISITEUR","UNITE_ONE","UNITE_TWO","GERANT",
+  "ADRAR",
 ] as const;
 export type UserRole = (typeof ROLES)[number];
