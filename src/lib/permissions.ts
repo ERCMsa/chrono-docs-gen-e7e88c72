@@ -5,11 +5,12 @@ export const MODULES = [
   { key: "payroll", label: "Paie / Acomptes" },
   { key: "leave", label: "Congés / Absences" },
   // « documents » contrôl l'accès aux ÉCRANS (routes gatées sur ce module) ;
-  // les 4 clés doc_* contrôlent ce qui est visible et supprimable par type.
+  // les 5 clés doc_* contrôlent ce qui est visible et supprimable par type.
   { key: "documents", label: "Documents — accès aux écrans" },
   { key: "doc_contract", label: "Documents — Contrats" },
   { key: "doc_bon_sortie", label: "Documents — Bons de sortie" },
   { key: "doc_bon_entree", label: "Documents — Bons d'entrée" },
+  { key: "doc_autorisation_absence", label: "Documents — Autorisations d'absence" },
   { key: "doc_avertissement", label: "Documents — Avertissements" },
   { key: "reports", label: "Rapports / Statistiques" },
   { key: "settings", label: "Paramètres" },
@@ -34,6 +35,7 @@ export const MODULE_PAGES: Partial<Record<ModuleKey, { path: string; label: stri
   ],
   doc_bon_sortie: [{ path: "/generate/bon_sortie", label: "Bon de sortie" }],
   doc_bon_entree: [{ path: "/generate/bon_entree", label: "Bon d'entrée" }],
+  doc_autorisation_absence: [{ path: "/generate/autorisation_absence", label: "Autorisation d'absence" }],
   doc_avertissement: [{ path: "/generate/avertissement", label: "Avertissement" }],
   leave: [
     { path: "/conges", label: "Congés" },
@@ -88,6 +90,7 @@ export const DOC_TYPE_MODULES = [
   "doc_contract",
   "doc_bon_sortie",
   "doc_bon_entree",
+  "doc_autorisation_absence",
   "doc_avertissement",
 ] as const;
 
@@ -96,6 +99,7 @@ export const DOCUMENT_TYPE_MODULE: Record<string, ModuleKey> = {
   contract: "doc_contract",
   bon_sortie: "doc_bon_sortie",
   bon_entree: "doc_bon_entree",
+  autorisation_absence: "doc_autorisation_absence",
   avertissement: "doc_avertissement",
 };
 
@@ -116,7 +120,7 @@ export function hasDocTypeRow(perms: { module: string }[] | undefined): boolean 
 /**
  * Permission d'une action sur un type de document.
  * RÈGLE ANTI-BLOCAGE : si l'utilisateur n'a AUCUNE ligne doc_* (comptes
- * hérités, jamais re-sauvegardés depuis l'ajout des 4 types), on retombe sur
+ * hérités, jamais re-sauvegardés depuis l'ajout des types), on retombe sur
  * la permission « documents », afin qu'aucun écran ne devienne inaccessible.
  */
 export function canDocumentType(

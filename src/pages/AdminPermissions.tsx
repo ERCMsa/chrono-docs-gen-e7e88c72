@@ -91,7 +91,7 @@ export default function AdminPermissions() {
   const togglePerm = (module: string, field: keyof PermRow) => {
     setPerms(p => {
       let next = p.map(x => x.module === module ? { ...x, [field]: !x[field] } : x);
-      // Comodité : cocher « Documents — voir » coche la vue des 4 types de
+      // Comodité : cocher « Documents — voir » coche la vue des 5 types de
       // documents (décochable ensuite type par type).
       if (module === "documents" && field === "can_view") {
         const viewOn = next.find(x => x.module === "documents")?.can_view ?? false;
@@ -283,8 +283,8 @@ export default function AdminPermissions() {
           </div>
           <p className="text-xs text-muted-foreground">
             <span className="font-medium">Documents — accès aux écrans</span> contrôle l'ouverture des pages
-            Documents et Génération ; les 4 types (contrat, bon de sortie, bon d'entrée, avertissement)
-            contrôlent ce qui est visible et supprimable.
+            Documents et Génération ; les 5 types (contrat, bon de sortie, bon d'entrée,
+            autorisation d'absence, avertissement) contrôlent ce qui est visible et supprimable.
           </p>
           <p className="text-xs text-muted-foreground">
             Un compte ADMIN dispose automatiquement de toutes les permissions et de tous les départements.

@@ -93,7 +93,7 @@
       {
         "name": "list_documents",
         "title": "List documents",
-        "description": "List HR documents (contracts, bons de sortie, avertissements, etc.). Optionally filter by worker or type.",
+        "description": "List HR documents (contracts, bons de sortie, autorisations d'absence, avertissements, etc.). Optionally filter by worker or type.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -110,7 +110,7 @@
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
             },
             "document_type": {
-              "description": "Filter by document type (e.g. contract, bon_sortie, avertissement).",
+              "description": "Filter by document type (e.g. contract, bon_sortie, autorisation_absence, avertissement).",
               "type": "string"
             },
             "limit": {

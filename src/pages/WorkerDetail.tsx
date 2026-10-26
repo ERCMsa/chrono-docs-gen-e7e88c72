@@ -223,7 +223,7 @@ export default function WorkerDetail() {
     return <Forbidden message="Cet employé n'appartient pas à vos départements." />;
   }
 
-  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
+  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree" || type === "autorisation_absence";
   const contractStatus = getContractStatus((worker as any).date_fin_contrat);
   const hasContractDoc = (documents ?? []).some((d: any) => d.document_type === "contract");
   const resignedAt = (worker as any).date_demission as string | null;

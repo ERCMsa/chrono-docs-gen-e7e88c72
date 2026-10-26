@@ -2,7 +2,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getWorkers, createDocumentWithReference, updateDocument, createWorker, updateWorker, previewNextReference, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
+import { getWorkers, createDocumentWithReference, updateDocument, createWorker, updateWorker, previewNextReference, syncAbsencesForDocument, DOCUMENT_TYPES } from "@/lib/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
 import { Download, Save, Printer, Plus, UserPlus } from "lucide-react";
@@ -23,6 +24,7 @@ import ContractPreview from "@/components/ContractPreview";
 import AvenantPreview, { AvenantData, EMPTY_AVENANT } from "@/components/AvenantPreview";
 import { WILAYAS_DATA, getCommunesByWilaya } from "@/data/wilayas";
 import { DUREE_OPTIONS, dureeArabicLabel, computeContractEnd } from "@/lib/contract-helpers";
+import { expandAbsenceDays } from "@/lib/absence-days";
 import defaultLogo from "@/assets/logo-ercm.png";
 
 type DocType = keyof typeof DOCUMENT_TYPES;
@@ -49,6 +51,8 @@ const getDefaultValues = (docType: DocType): Record<string, string> => {
       return { sortie_date: todayStr(), sortie_time: nowTime() };
     case "bon_entree":
       return { entree_date: todayStr(), entree_time: nowTime() };
+    case "autorisation_absence":
+      return { absence_mode: "single", absence_date: todayStr(), absence_end_date: "", reason: "" };
     case "avertissement":
       return { avert_date: todayStr(), infraction_date: todayStr() };
     default:
@@ -68,6 +72,7 @@ const formFieldsByType: Record<DocType, { key: string; label: string; type?: str
     { key: "entree_time", label: "Heure d'entrée", type: "time" },
     { key: "reason", label: "Motif d'entrée", placeholder: "Ex: Retour de mission" },
   ],
+  autorisation_absence: [],
   avertissement: [
     { key: "avert_date", label: "Date de l'avertissement", type: "date" },
     { key: "infraction", label: "Nature de l'infraction", placeholder: "Ex: Retard répété" },
@@ -249,7 +254,7 @@ export default function GenerateDocument() {
   const queryClient = useQueryClient();
   const { visibleDepartments, isGlobalScope, canDocument } = useAuth();
   const routeType = type as DocType;
-  const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree";
+  const isBonSection = routeType === "bon_sortie" || routeType === "bon_entree" || routeType === "autorisation_absence";
   const isEdit = !!editId;
 
   const [bonType, setBonType] = useState<DocType>(routeType);
@@ -340,6 +345,16 @@ export default function GenerateDocument() {
   const selectedWorker = workers?.find((w) => w.id === workerId);
 
   const isContract = docType === "contract";
+  const isAbsenceAuth = docType === "autorisation_absence";
+  const absenceDays = useMemo(
+    () => (isAbsenceAuth && formData.absence_date
+      ? expandAbsenceDays(
+          formData.absence_date,
+          formData.absence_mode === "range" ? formData.absence_end_date : undefined,
+        )
+      : []),
+    [isAbsenceAuth, formData.absence_date, formData.absence_mode, formData.absence_end_date],
+  );
 
   // Référence auto-incrémentée : aperçu seulement, le numéro définitif est
   // attribué par la base de données à l'enregistrement (aucun doublon possible).
@@ -383,6 +398,19 @@ export default function GenerateDocument() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (isAbsenceAuth) {
+        if (!formData.absence_date) throw new Error("Sélectionnez une date d'absence");
+        if (formData.absence_mode === "range") {
+          if (!formData.absence_end_date) throw new Error("Sélectionnez une date de fin");
+          if (formData.absence_end_date < formData.absence_date) {
+            throw new Error("La date de fin doit être après ou égale à la date de début");
+          }
+          if (absenceDays.length === 0) {
+            throw new Error("La période ne contient aucun jour travaillable (jeudi et vendredi exclus)");
+          }
+        }
+      }
+
       const avenantPayload = (isContract && showAvenant ? { ...avenant } : null) as any;
 
       let targetWorker = selectedWorker;
@@ -408,6 +436,8 @@ export default function GenerateDocument() {
         targetWorkerId = created.id;
         setWorkerId(created.id);
       }
+
+      if (isAbsenceAuth && !targetWorkerId) throw new Error("Sélectionnez un employé");
 
       // Contract → employee sync (one-way, done here so no DB trigger loop is possible).
       // Chaque champ commun est écrit s'il est renseigné sur le contrat (il remplit
@@ -439,27 +469,58 @@ export default function GenerateDocument() {
         ? { ...formData, sexe: "Masculin", worker: targetWorker, avenant: avenantPayload }
         : { ...formData, worker: targetWorker, avenant: avenantPayload };
 
-      return isEdit
-        ? updateDocument(editId!, {
+      const saved = isEdit
+        ? await updateDocument(editId!, {
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
             content: contentPayload,
+            // Pour une autorisation d'absence, l'employé peut être changé lors
+            // de l'édition : le document et ses absences doivent rester liés
+            // au même employé.
+            ...(isAbsenceAuth ? { worker_id: targetWorkerId } : {}),
           })
-        : createDocumentWithReference({
+        : await createDocumentWithReference({
             worker_id: targetWorkerId,
             document_type: docType,
             title: `${DOCUMENT_TYPES[docType].label} - ${targetWorker?.full_name}`,
             content: contentPayload,
           });
+
+      // Autorisation d'absence : une absence par jour travaillable, liée au
+      // document et à l'employé. Les absences déjà générées par ce document
+      // sont remplacées à chaque enregistrement.
+      let absenceCount = 0;
+      if (isAbsenceAuth) {
+        try {
+          absenceCount = await syncAbsencesForDocument({
+            document_id: saved.id,
+            worker_id: targetWorkerId,
+            mode: formData.absence_mode === "range" ? "range" : "single",
+            start_date: formData.absence_date,
+            end_date: formData.absence_mode === "range" ? formData.absence_end_date : undefined,
+            reason: formData.reason,
+          });
+        } catch (error: any) {
+          toast.error(error?.message ?? "Le document est enregistré, mais les absences n'ont pas pu être créées.");
+        }
+      }
+
+      return { ...saved, absenceCount };
     },
 
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
       queryClient.invalidateQueries({ queryKey: ["next-reference"] });
+      if (isAbsenceAuth) {
+        queryClient.invalidateQueries({ queryKey: ["absences"] });
+        queryClient.invalidateQueries({ queryKey: ["worker-absences"] });
+      }
       if (isEdit) queryClient.invalidateQueries({ queryKey: ["document", editId] });
+      if (data?.absenceCount) toast.success(`${data.absenceCount} absence(s) créée(s)`);
       toast.success(isEdit ? "Document mis à jour" : "Document sauvegardé");
       navigate(`/documents/${data.id}`);
     },
-    onError: () => toast.error("Erreur lors de la sauvegarde"),
+    onError: (error: any) => toast.error(error?.message ?? "Erreur lors de la sauvegarde"),
   });
 
 
@@ -487,6 +548,7 @@ export default function GenerateDocument() {
           <TabsList>
             <TabsTrigger value="bon_sortie">Bon de sortie</TabsTrigger>
             <TabsTrigger value="bon_entree">Bon d'entrée</TabsTrigger>
+            <TabsTrigger value="autorisation_absence">Autorisation d'absence</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
@@ -652,33 +714,110 @@ export default function GenerateDocument() {
                   Numéro attribué automatiquement à l'enregistrement — non modifiable.
                 </p>
               </div>
-              {fields.map((field) => (
-                <div key={field.key} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{field.label}</Label>
-                  {field.type === "textarea" ? (
+              {docType === "autorisation_absence" ? (
+                <>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+                      Période
+                    </Label>
+                    <RadioGroup
+                      value={formData.absence_mode === "range" ? "range" : "single"}
+                      onValueChange={(v) => setFormData((p) => ({ ...p, absence_mode: v }))}
+                      className="flex flex-wrap gap-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="single" id="absence-mode-single" />
+                        <Label htmlFor="absence-mode-single" className="text-sm font-medium mb-0 cursor-pointer">Date unique</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="range" id="absence-mode-range" />
+                        <Label htmlFor="absence-mode-range" className="text-sm font-medium mb-0 cursor-pointer">Intervalle (début → fin)</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {formData.absence_mode === "range" ? (
+                    <>
+                      <div>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Du *</Label>
+                        <DateInput
+                          value={formData.absence_date ?? ""}
+                          onChange={(e) => setFormData((p) => ({ ...p, absence_date: e.target.value }))}
+                          className="h-11"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Au *</Label>
+                        <DateInput
+                          value={formData.absence_end_date ?? ""}
+                          onChange={(e) => setFormData((p) => ({ ...p, absence_end_date: e.target.value }))}
+                          className="h-11"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Date d'absence *</Label>
+                      <DateInput
+                        value={formData.absence_date ?? ""}
+                        onChange={(e) => setFormData((p) => ({ ...p, absence_date: e.target.value }))}
+                        className="h-11"
+                      />
+                    </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Motif</Label>
                     <Textarea
-                      value={formData[field.key] ?? ""}
-                      onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
+                      value={formData.reason ?? ""}
+                      onChange={(e) => setFormData((p) => ({ ...p, reason: e.target.value }))}
+                      placeholder="Ex: Raisons familiales"
                       rows={3}
                     />
-                  ) : field.type === "date" ? (
-                    <DateInput
-                      value={formData[field.key] ?? ""}
-                      onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
-                      className="h-11"
-                    />
-                  ) : (
-                    <Input
-                      type={field.type ?? "text"}
-                      value={formData[field.key] ?? ""}
-                      onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                      className="h-11"
-                    />
+                  </div>
+
+                  {absenceDays.length > 0 && (
+                    <div className="sm:col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                      {absenceDays.length} absence{absenceDays.length > 1 ? "s" : ""}{" "}
+                      {absenceDays.length > 1 ? "seront créées" : "sera créée"}
+                      {formData.absence_mode === "range" ? " (jeudi et vendredi exclus)" : ""}.
+                    </div>
                   )}
-                </div>
-              ))}
+                  {formData.absence_mode === "range" && formData.absence_date && formData.absence_end_date && absenceDays.length === 0 && (
+                    <div className="sm:col-span-2 rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm text-warning">
+                      La période sélectionnée ne contient aucun jour travaillable (jeudi et vendredi exclus).
+                    </div>
+                  )}
+                </>
+              ) : (
+                fields.map((field) => (
+                  <div key={field.key} className={field.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{field.label}</Label>
+                    {field.type === "textarea" ? (
+                      <Textarea
+                        value={formData[field.key] ?? ""}
+                        onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        rows={3}
+                      />
+                    ) : field.type === "date" ? (
+                      <DateInput
+                        value={formData[field.key] ?? ""}
+                        onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                        className="h-11"
+                      />
+                    ) : (
+                      <Input
+                        type={field.type ?? "text"}
+                        value={formData[field.key] ?? ""}
+                        onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        className="h-11"
+                      />
+                    )}
+                  </div>
+                ))
+              )}
               {docType === "bon_sortie" && !!formData.sortie_time && (
                 <div>
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
@@ -698,28 +837,43 @@ export default function GenerateDocument() {
             </div>
             <div className="flex gap-3 pt-2 border-t border-border">
               {canDocument(docType, isEdit ? "edit" : "create") && (
-                <Button onClick={() => saveMutation.mutate()} disabled={!workerId || saveMutation.isPending} className="flex-1">
+                <Button
+                  onClick={() => saveMutation.mutate()}
+                  disabled={
+                    !workerId ||
+                    saveMutation.isPending ||
+                    (isAbsenceAuth && (
+                      !formData.absence_date ||
+                      (formData.absence_mode === "range" && (!formData.absence_end_date || absenceDays.length === 0))
+                    ))
+                  }
+                  className="flex-1"
+                >
                   <Save className="w-4 h-4 mr-2" />{saveMutation.isPending ? "Sauvegarde..." : "Sauvegarder"}
                 </Button>
               )}
             </div>
           </div>
 
-          {selectedWorker && (
-            <div className="space-y-4">
-              <div className="flex justify-end gap-2">
-                <Button onClick={() => window.print()} variant="outline" size="sm">
-                  <Printer className="w-4 h-4 mr-2" />Imprimer
-                </Button>
-                <Button onClick={handleDownloadPdf} variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />Télécharger PDF
-                </Button>
-              </div>
-              <div id="document-preview">
-                <DocumentPreview type={docType} worker={selectedWorker} data={formData} />
-              </div>
+          <div className="space-y-4">
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => window.print()} variant="outline" size="sm" disabled={!selectedWorker}>
+                <Printer className="w-4 h-4 mr-2" />Imprimer
+              </Button>
+              <Button onClick={handleDownloadPdf} variant="outline" size="sm" disabled={!selectedWorker}>
+                <Download className="w-4 h-4 mr-2" />Télécharger PDF
+              </Button>
             </div>
-          )}
+            <div id="document-preview">
+              {selectedWorker ? (
+                <DocumentPreview type={docType} worker={selectedWorker} data={formData} />
+              ) : (
+                <div className="panel p-10 text-center text-sm text-muted-foreground">
+                  Sélectionnez un employé pour afficher l'aperçu du document.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

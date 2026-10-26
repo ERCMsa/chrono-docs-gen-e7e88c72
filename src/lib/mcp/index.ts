@@ -13,7 +13,7 @@ export default defineMcp({
   title: "Rh Doc Gen (ERCM)",
   version: "0.1.0",
   instructions:
-    "Tools for the ERCM Rh Doc Gen HR app. Look up employees, HR documents (contracts, bons de sortie, avertissements), and absences for the signed-in user. All calls respect the user's role and department permissions.",
+    "Tools for the ERCM Rh Doc Gen HR app. Look up employees, HR documents (contracts, bons de sortie, autorisations d'absence, avertissements), and absences for the signed-in user. All calls respect the user's role and department permissions.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

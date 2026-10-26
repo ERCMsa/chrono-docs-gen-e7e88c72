@@ -34,7 +34,7 @@ const navGroups: NavGroup[] = [
       { to: "/workers", label: "Employés", icon: Users, module: "employees" },
       {
         to: "/documents", label: "Documents", icon: FileText, module: "documents",
-        anyOfModules: ["doc_bon_sortie", "doc_bon_entree", "doc_avertissement"],
+        anyOfModules: ["doc_bon_sortie", "doc_bon_entree", "doc_autorisation_absence", "doc_avertissement"],
       },
       { to: "/contracts", label: "Contracts List", icon: Files, module: "documents", anyOfModules: ["doc_contract"] },
     ],

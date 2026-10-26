@@ -29,7 +29,12 @@ export default function Documents() {
   const deleteMutation = useMutation({
     mutationFn: deleteDocument,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] }); queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["workers-with-contract"] });
+      // La suppression d'une autorisation d'absence supprime aussi ses
+      // absences liées (ON DELETE CASCADE côté base).
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      queryClient.invalidateQueries({ queryKey: ["worker-absences"] });
       toast.success("Document supprimé");
       setToDelete(null);
     },
@@ -57,7 +62,7 @@ export default function Documents() {
     return matchesType && matchesSearch;
   });
 
-  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree";
+  const isBon = (type: string) => type === "bon_sortie" || type === "bon_entree" || type === "autorisation_absence";
   // Onglets : uniquement les types que l'utilisateur peut voir
   const documentTabs = [
     { key: "all", label: "Tous" },

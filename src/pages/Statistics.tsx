@@ -16,6 +16,7 @@ const CHART_COLORS = [
   "hsl(357 79% 45%)",
   "hsl(214 72% 46%)",
   "hsl(151 55% 38%)",
+  "hsl(271 60% 52%)",
   "hsl(36 92% 45%)",
 ];
 
@@ -110,7 +111,7 @@ export default function Statistics() {
       </PageHeader>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {typeCounts.map((t, i) => (
           <div key={t.name} className="panel p-5">
             <div className="flex items-center justify-between gap-3">

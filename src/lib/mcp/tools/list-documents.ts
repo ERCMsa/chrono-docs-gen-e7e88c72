@@ -17,14 +17,14 @@ export default defineTool({
   name: "list_documents",
   title: "List documents",
   description:
-    "List HR documents (contracts, bons de sortie, avertissements, etc.). Optionally filter by worker or type.",
+    "List HR documents (contracts, bons de sortie, autorisations d'absence, avertissements, etc.). Optionally filter by worker or type.",
   inputSchema: {
     worker_id: z.string().uuid().optional().describe("Filter to a single employee."),
     document_type: z
       .string()
       .trim()
       .optional()
-      .describe("Filter by document type (e.g. contract, bon_sortie, avertissement)."),
+      .describe("Filter by document type (e.g. contract, bon_sortie, autorisation_absence, avertissement)."),
     limit: z.number().int().positive().optional().describe("Max rows (default 50)."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },

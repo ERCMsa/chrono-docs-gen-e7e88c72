@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { parseAnyDate, toISODate } from "@/lib/date-utils";
+import { expandAbsenceDays } from "@/lib/absence-days";
 
 type Worker = Database["public"]["Tables"]["workers"]["Row"];
 type WorkerInsert = Database["public"]["Tables"]["workers"]["Insert"];
@@ -83,7 +84,11 @@ export async function createDocument(doc: DocumentInsert) {
 export function formatReference(kind: string, year: number, seq: number) {
   const pad = kind === "conge" ? 2 : 3;
   const prefix =
-    kind === "bon_sortie" ? "BS-" : kind === "bon_entree" ? "BE-" : kind === "avertissement" ? "AV-" : "";
+    kind === "bon_sortie" ? "BS-"
+      : kind === "bon_entree" ? "BE-"
+        : kind === "avertissement" ? "AV-"
+          : kind === "autorisation_absence" ? "AA-"
+            : "";
   return `${prefix}${String(seq).padStart(pad, "0")}/${year}`;
 }
 
@@ -210,6 +215,7 @@ export type Absence = {
   worker_id: string;
   absence_date: string;
   reason: string | null;
+  document_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -233,11 +239,12 @@ export async function getAbsences(workerId?: string, month?: string) {
   return data as AbsenceWithWorker[];
 }
 
-export async function createAbsence(params: { worker_id: string; absence_date: string; reason?: string }) {
+export async function createAbsence(params: { worker_id: string; absence_date: string; reason?: string; document_id?: string }) {
   const { data, error } = await (supabase as any).from("absences").insert({
     worker_id: params.worker_id,
     absence_date: params.absence_date,
     reason: params.reason ?? null,
+    document_id: params.document_id ?? null,
   }).select().single();
   if (error) throw error;
   return data as Absence;
@@ -255,7 +262,7 @@ export async function createAbsencesBulk(params: { worker_ids: string[]; absence
 }
 
 /** Crée une absence pour chaque jour de la période [start_date → end_date], pour chaque employé. */
-export async function createAbsencesForRange(params: { worker_ids: string[]; start_date: string; end_date: string; reason?: string }) {
+export async function createAbsencesForRange(params: { worker_ids: string[]; start_date: string; end_date: string; reason?: string; document_id?: string }) {
   const start = parseAnyDate(params.start_date);
   const end = parseAnyDate(params.end_date);
   if (!start || !end) throw new Error("Dates invalides");
@@ -273,11 +280,73 @@ export async function createAbsencesForRange(params: { worker_ids: string[]; sta
       worker_id,
       absence_date,
       reason: params.reason ?? null,
+      document_id: params.document_id ?? null,
     })),
   );
   const { data, error } = await (supabase as any).from("absences").insert(rows).select();
   if (error) throw error;
   return data as Absence[];
+}
+
+/**
+ * Synchronise les absences générées par une autorisation d'absence :
+ * - supprime les absences déjà liées à ce document ;
+ * - recrée une absence par jour travaillable (jeudi et vendredi exclus pour
+ *   les intervalles) ;
+ * - ignore les dates qui ont déjà une absence manuelle pour cet employé.
+ */
+export async function syncAbsencesForDocument(params: {
+  document_id: string;
+  worker_id: string;
+  mode: "single" | "range";
+  start_date: string;
+  end_date?: string;
+  reason?: string;
+}) {
+  const start = toISODate(params.start_date);
+  if (!start) throw new Error("Date d'absence invalide");
+
+  const end = params.mode === "range" ? toISODate(params.end_date ?? "") : start;
+  if (!end) throw new Error("Date de fin d'absence invalide");
+
+  const days = expandAbsenceDays(start, params.mode === "range" ? end : undefined);
+  if (days.length === 0) {
+    throw new Error("La période ne contient aucun jour travaillable (jeudi et vendredi exclus)");
+  }
+
+  // Remplace uniquement les absences créées par ce document.
+  const { error: deleteError } = await (supabase as any)
+    .from("absences")
+    .delete()
+    .eq("document_id", params.document_id);
+  if (deleteError) throw deleteError;
+
+  // Ne pas dupliquer une absence saisie manuellement sur la même date.
+  const { data: existing, error: existingError } = await (supabase as any)
+    .from("absences")
+    .select("absence_date")
+    .eq("worker_id", params.worker_id)
+    .gte("absence_date", days[0])
+    .lte("absence_date", days[days.length - 1]);
+  if (existingError) throw existingError;
+
+  const existingDates = new Set(
+    ((existing ?? []) as { absence_date: string }[]).map((row) => String(row.absence_date).slice(0, 10)),
+  );
+  const missing = days.filter((day) => !existingDates.has(day));
+  if (missing.length === 0) return 0;
+
+  const reason = params.reason?.trim() || "Autorisation d'absence";
+  const rows = missing.map((absence_date) => ({
+    worker_id: params.worker_id,
+    absence_date,
+    reason,
+    document_id: params.document_id,
+  }));
+
+  const { data, error } = await (supabase as any).from("absences").insert(rows).select();
+  if (error) throw error;
+  return ((data ?? []) as Absence[]).length;
 }
 
 export async function updateAbsence(id: string, params: { absence_date?: string; reason?: string | null }) {
@@ -397,5 +466,6 @@ export const DOCUMENT_TYPES = {
   contract: { label: "Contrat de travail", icon: "FileText" },
   bon_sortie: { label: "Bon de sortie", icon: "LogOut" },
   bon_entree: { label: "Bon d'entrée", icon: "LogIn" },
+  autorisation_absence: { label: "Autorisation d'absence", icon: "CalendarX" },
   avertissement: { label: "Avertissement", icon: "AlertTriangle" },
 } as const;

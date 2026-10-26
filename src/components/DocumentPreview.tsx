@@ -1,9 +1,11 @@
 import type { Worker } from "@/lib/supabase-helpers";
 import logoErcm from "@/assets/logo-ercm.png";
 import ContractPreview from "./ContractPreview"
+import { formatDateFR } from "@/lib/date-utils";
+import { expandAbsenceDays } from "@/lib/absence-days";
 
 interface Props {
-  type: "contract" | "bon_sortie" | "bon_entree" | "avertissement";
+  type: "contract" | "bon_sortie" | "bon_entree" | "autorisation_absence" | "avertissement";
   worker: Worker;
   data: Record<string, string>;
   validationStatus?: {
@@ -131,8 +133,6 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     borderRadius: 8,
   };
 
-  const isBon = type === "bon_sortie" || type === "bon_entree";
-
   const sortieItems = [
     { label: "Matricule", value: (worker as any).matricule },
     { label: "Date de sortie", value: data.sortie_date },
@@ -156,6 +156,26 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     { label: "Département", value: worker.department },
   ];
 
+  const absenceMode = data.absence_mode === "range" ? "range" : "single";
+  const absenceStart = data.absence_date;
+  const absenceEnd = absenceMode === "range" ? data.absence_end_date : data.absence_date;
+  const absenceDays = absenceStart
+    ? expandAbsenceDays(absenceStart, absenceMode === "range" ? absenceEnd : undefined)
+    : [];
+  const absenceItems = [
+    { label: "Matricule", value: (worker as any).matricule },
+    {
+      label: absenceMode === "range" ? "Période d'absence" : "Date d'absence",
+      value: absenceMode === "range"
+        ? `${formatDateFR(absenceStart)} → ${formatDateFR(absenceEnd)} (${absenceDays.length} jour${absenceDays.length > 1 ? "s" : ""})`
+        : formatDateFR(absenceStart),
+    },
+    { label: "Nom Complet", value: worker.full_name },
+    { label: "Poste", value: worker.position },
+    { label: "Motif", value: data.reason },
+    { label: "Département", value: worker.department },
+  ];
+
   const templates: Record<string, React.ReactNode> = {
     bon_sortie: (
       <div style={pageStyle}>
@@ -170,6 +190,15 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
       <div style={pageStyle}>
         <DocHeader title="BON D AUTORISATION" subtitle="Entrée" reference={data.reference} />
         <InfoGrid items={entreeItems} />
+        <VisaSection validationStatus={validationStatus} />
+        <DocFooter />
+      </div>
+    ),
+
+    autorisation_absence: (
+      <div style={pageStyle}>
+        <DocHeader title="AUTORISATION D'ABSENCE" reference={data.reference} />
+        <InfoGrid items={absenceItems} />
         <VisaSection validationStatus={validationStatus} />
         <DocFooter />
       </div>
@@ -210,5 +239,18 @@ export default function DocumentPreview({ type, worker, data, validationStatus }
     ),
   };
 
-  return <>{templates[type]}</>;
+  const template = templates[type];
+  if (!template) {
+    // Ne jamais renvoyer un aperçu vide : une page blanche serait ensuite
+    // imprimée/exportée en PDF sans que l'utilisateur comprenne pourquoi.
+    return (
+      <div style={pageStyle}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: "#ce161d", textAlign: "center" }}>
+          Type de document non pris en charge : {type}
+        </p>
+      </div>
+    );
+  }
+
+  return <>{template}</>;
 }

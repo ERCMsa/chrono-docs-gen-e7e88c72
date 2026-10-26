@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           absence_date: string
           created_at: string
+          document_id: string | null
           id: string
           reason: string | null
           updated_at: string
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           absence_date: string
           created_at?: string
+          document_id?: string | null
           id?: string
           reason?: string | null
           updated_at?: string
@@ -34,12 +36,20 @@ export type Database = {
         Update: {
           absence_date?: string
           created_at?: string
+          document_id?: string | null
           id?: string
           reason?: string | null
           updated_at?: string
           worker_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "absences_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "absences_worker_id_fkey"
             columns: ["worker_id"]
