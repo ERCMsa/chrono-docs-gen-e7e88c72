@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, CalendarX, Trash2, Pencil, Filter } from "lucide-react";
+import { Plus, CalendarX, Trash2, Pencil, Filter, Link2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import WorkerAutocomplete from "@/components/WorkerAutocomplete";
@@ -28,6 +28,9 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
+/** Une absence est « automatique » quand elle est rattachée à un document source. */
+const isAutoAbsence = (a: { document_id?: string | null }) => !!a.document_id;
+
 export default function Absences() {
   const qc = useQueryClient();
   const { visibleDepartments, isGlobalScope, can, canAccessWorker } = useAuth();
@@ -41,6 +44,7 @@ export default function Absences() {
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [filterWorker, setFilterWorker] = useState("all");
+  const [filterOrigin, setFilterOrigin] = useState<"all" | "manual" | "auto">("all");
   const now = new Date();
   const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
   const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
@@ -136,10 +140,12 @@ export default function Absences() {
       // Portée : l'absence d'un employé hors de vos départements est masquée
       if (!canAccessWorker(a.workers)) return false;
       if (filterWorker !== "all" && a.worker_id !== filterWorker) return false;
+      if (filterOrigin === "auto" && !isAutoAbsence(a)) return false;
+      if (filterOrigin === "manual" && isAutoAbsence(a)) return false;
       if (a.absence_date.slice(0, 4) !== filterYear) return false;
       return true;
     });
-  }, [absences, filterWorker, filterYear, canAccessWorker]);
+  }, [absences, filterWorker, filterOrigin, filterYear, canAccessWorker]);
 
 
   return (
@@ -294,6 +300,18 @@ export default function Absences() {
           </Select>
         </div>
 
+        <div>
+          <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Origine</Label>
+          <Select value={filterOrigin} onValueChange={(v) => setFilterOrigin(v as "all" | "manual" | "auto")}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes</SelectItem>
+              <SelectItem value="manual">Manuelles</SelectItem>
+              <SelectItem value="auto">Automatiques</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="ml-auto text-sm text-muted-foreground">
           Total : <span className="font-semibold text-foreground">{filtered.length}</span>
         </div>
@@ -325,24 +343,68 @@ export default function Absences() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a) => (
-                <tr key={a.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
-                  <td className="px-4 py-3 align-middle text-sm">{formatDateFR(a.absence_date)}</td>
-                  <td className="px-4 py-3 align-middle font-medium">
-                    <Link to={`/workers/${a.worker_id}`} className="hover:underline">{a.workers?.full_name ?? "—"}</Link>
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">{a.workers?.department ?? "—"}</td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[300px] truncate">{a.reason ?? "—"}</td>
-                  <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
-                    {can("leave", "edit") && (
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
+              {filtered.map((a) => {
+                const auto = isAutoAbsence(a);
+                const documentUrl = `/documents/${a.document_id}`;
+                return (
+                  <tr
+                    key={a.id}
+                    className={cn(
+                      "border-b last:border-0 transition-colors hover:bg-muted/40",
+                      auto && "bg-primary/[0.04]",
                     )}
-                    {can("leave", "delete") && (
-                      <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer cette absence ?")) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                  >
+                    <td className="px-4 py-3 align-middle text-sm">{formatDateFR(a.absence_date)}</td>
+                    <td className="px-4 py-3 align-middle font-medium">
+                      <Link to={`/workers/${a.worker_id}`} className="hover:underline">{a.workers?.full_name ?? "—"}</Link>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">{a.workers?.department ?? "—"}</td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground max-w-[300px]">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{a.reason ?? "—"}</span>
+                        {auto && (can("documents", "view") ? (
+                          <Link
+                            to={documentUrl}
+                            title="Générée automatiquement depuis l'autorisation d'absence — ouvrir le document"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary hover:bg-primary/20"
+                          >
+                            <Link2 className="h-3 w-3" />Auto
+                          </Link>
+                        ) : (
+                          <span
+                            title="Générée automatiquement depuis l'autorisation d'absence"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                          >
+                            <Link2 className="h-3 w-3" />Auto
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-right whitespace-nowrap">
+                      {auto ? (
+                        can("documents", "view") && (
+                          <Link
+                            to={documentUrl}
+                            title="Gérer depuis l'autorisation d'absence"
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />Ouvrir l'autorisation
+                          </Link>
+                        )
+                      ) : (
+                        <>
+                          {can("leave", "edit") && (
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(a)}><Pencil className="w-4 h-4" /></Button>
+                          )}
+                          {can("leave", "delete") && (
+                            <Button variant="ghost" size="sm" onClick={() => { if (confirm("Supprimer cette absence ?")) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

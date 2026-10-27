@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, AlertTriangle, XCircle } from "lucide-react";
+import { ArrowLeft, FileText, Users, Shield, CheckCircle, Clock, Pencil, Wallet, TrendingUp, TrendingDown, Eye, CalendarX, CalendarRange, Trash2, AlertTriangle, XCircle, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import RenewContractButton from "@/components/RenewContractButton";
 import { ListRowsSkeleton } from "@/components/Skeletons";
@@ -697,12 +697,41 @@ export default function WorkerDetail() {
                 </tr>
               </thead>
               <tbody>
-                {absences.map((a) => (
-                  <tr key={a.id} className="border-b last:border-0 transition-colors hover:bg-muted/40">
-                    <td className="px-4 py-3 text-sm align-middle">{formatDateFR(a.absence_date)}</td>
-                    <td className="px-4 py-3 text-sm align-middle text-muted-foreground">{a.reason ?? "—"}</td>
-                  </tr>
-                ))}
+                {absences.map((a) => {
+                  const auto = !!a.document_id;
+                  return (
+                    <tr
+                      key={a.id}
+                      className={cn(
+                        "border-b last:border-0 transition-colors hover:bg-muted/40",
+                        auto && "bg-primary/[0.04]",
+                      )}
+                    >
+                      <td className="px-4 py-3 text-sm align-middle">{formatDateFR(a.absence_date)}</td>
+                      <td className="px-4 py-3 text-sm align-middle text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{a.reason ?? "—"}</span>
+                          {auto && (can("documents", "view") ? (
+                            <Link
+                              to={`/documents/${a.document_id}`}
+                              title="Générée automatiquement depuis l'autorisation d'absence — ouvrir le document"
+                              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary hover:bg-primary/20"
+                            >
+                              <Link2 className="h-3 w-3" />Auto
+                            </Link>
+                          ) : (
+                            <span
+                              title="Générée automatiquement depuis l'autorisation d'absence"
+                              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                            >
+                              <Link2 className="h-3 w-3" />Auto
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
