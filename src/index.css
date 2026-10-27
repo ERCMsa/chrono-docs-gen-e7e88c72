@@ -208,13 +208,6 @@
     padding: 0;
     box-shadow: none;
   }
-  /* Hide VALIDÉ watermark stamps when printing */
-  #document-preview [style*="VALIDÉ"],
-  .validation-stamp {
-    display: none !important;
-    visibility: hidden !important;
-  }
-
   /* Fixed sheets: remove screen shadows / centering, each sheet = 1 A4 page */
   .a4-sheet {
     box-shadow: none !important;

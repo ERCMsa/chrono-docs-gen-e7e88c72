@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { DOCUMENT_TYPES, validateDocument } from "@/lib/supabase-helpers";
+import { canValidateAsResponsible } from "@/lib/permissions";
 import { exportToPdf } from "@/lib/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, Printer, CheckCircle, Shield, AlertCircle, Pencil } from "lucide-react";
@@ -37,14 +38,16 @@ export default function DocumentView() {
     enabled: !!id,
   });
 
-  // Role-based validation: chef de service = user's role matches worker's department.
-  // RH = user has RH role. ADMIN can do both.
+  // Role-based validation: chef de service = user's role matches worker's department,
+  // or a DIRECTEUR for CNC / MONTAGE / PRODUCTION. RH = user has RH role. ADMIN can do both.
   const worker = (doc as any)?.workers;
-  const workerDept = (worker?.department ?? "").trim().toUpperCase();
   const userRole = (role ?? "").toUpperCase();
 
-  const canValidateResponsible =
-    isAdmin() || (!!userRole && !!workerDept && userRole === workerDept);
+  const canValidateResponsible = canValidateAsResponsible({
+    isAdmin: isAdmin(),
+    role,
+    workerDepartment: worker?.department,
+  });
   const canValidateRH = isAdmin() || userRole === "RH";
 
   const validateMutation = useMutation({

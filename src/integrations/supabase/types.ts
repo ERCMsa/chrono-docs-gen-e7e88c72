@@ -440,6 +440,7 @@ export type Database = {
         | "UNITE_TWO"
         | "GERANT"
         | "ADRAR"
+        | "DIRECTEUR"
       validation_status: "PENDING" | "VALIDATED" | "REJECTED"
     }
     CompositeTypes: {
@@ -586,6 +587,8 @@ export const Constants = {
         "UNITE_ONE",
         "UNITE_TWO",
         "GERANT",
+        "ADRAR",
+        "DIRECTEUR",
       ],
       validation_status: ["PENDING", "VALIDATED", "REJECTED"],
     },

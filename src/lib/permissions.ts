@@ -85,6 +85,35 @@ export function normalizeDepartment(dept?: string | null): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Départements dont un DIRECTEUR peut viser les documents en tant que
+ * « chef de service » (le visa RH reste réservé aux comptes RH / ADMIN).
+ */
+export const DIRECTOR_VALIDATION_DEPARTMENTS = ["CNC", "MONTAGE", "PRODUCTION"] as const;
+
+/**
+ * Validation « chef de service » d'un document.
+ * - ADMIN : toujours autorisé ;
+ * - le rôle correspond au département de l'employé (règle historique) ;
+ * - DIRECTEUR : autorisé pour CNC / MONTAGE / PRODUCTION uniquement.
+ */
+export function canValidateAsResponsible(args: {
+  isAdmin: boolean;
+  role: string | null | undefined;
+  workerDepartment: string | null | undefined;
+}): boolean {
+  const { isAdmin, role, workerDepartment } = args;
+  if (isAdmin) return true;
+  const userRole = normalizeDepartment(role);
+  const workerDept = normalizeDepartment(workerDepartment);
+  if (!userRole || !workerDept) return false;
+  if (userRole === workerDept) return true;
+  return (
+    userRole === "DIRECTEUR" &&
+    (DIRECTOR_VALIDATION_DEPARTMENTS as readonly string[]).includes(workerDept)
+  );
+}
+
 /** Modules de permission, un par type de document (nécessite l'accès « documents » pour les écrans). */
 export const DOC_TYPE_MODULES = [
   "doc_contract",
@@ -182,6 +211,6 @@ export const ROLES = [
   "ADMIN","PRODUCTION","ENGINEER","MAINTENANCE","GDS","MONTAGE",
   "IT","GENIE_CIVIL","RH","FINANCE","CLIENT","HSE",
   "CNC","VISITEUR","UNITE_ONE","UNITE_TWO","GERANT",
-  "ADRAR",
+  "ADRAR","DIRECTEUR",
 ] as const;
 export type UserRole = (typeof ROLES)[number];
