@@ -49,6 +49,8 @@ export type MonthlyMatrixRow = {
   id: string;
   matricule: string;
   name: string;
+  /** Mois travaillés sur l'exercice (repris du tableau « Droit de Congé »). */
+  monthWorked: number;
   /** Seules les clés des mois où l'employé a un congé sont présentes. */
   cells: Record<MonthKey, MonthlyCell>;
   totalDays: number;
@@ -161,6 +163,7 @@ export function buildMonthlyCongeMatrix(
       id: row.id,
       matricule: row.matricule,
       name: row.name,
+      monthWorked: row.monthWorked,
       cells,
       totalDays: Object.values(cells).reduce((s, c) => s + c.days, 0),
       totalWorkingDays: Object.values(cells).reduce((s, c) => s + c.workingDays, 0),

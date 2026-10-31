@@ -128,6 +128,93 @@ describe("buildCongeMonthlyWorkbook", () => {
   });
 });
 
+describe("feuille « Congés par mois avec salaires »", () => {
+  async function salarySheet() {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    return { wb, ws: wb.getWorksheet("Congés par mois avec salaires")! };
+  }
+
+  const formulaOf = (ws: { getCell: (ref: string) => { value: unknown } }, ref: string): string =>
+    ((ws.getCell(ref).value as { formula?: string } | null)?.formula) ?? "";
+
+  it("ajoute une seconde feuille avec les colonnes de paie au bon endroit", async () => {
+    const { wb, ws } = await salarySheet();
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Congés par mois", "Congés par mois avec salaires"]);
+    expect(ws).toBeTruthy();
+
+    expect(ws.getCell("A6").value).toBe("MATRICULE");
+    expect(ws.getCell("B6").value).toBe("Employé");
+    expect(ws.getCell("C6").value).toBe("Droit de congé");
+    expect(ws.getCell("D6").value).toBe("Moyen paie");
+    expect(ws.getCell("E6").value).toBe("Paie congé");
+    expect(ws.getCell("F6").value).toBe("Prime");
+    expect(ws.getCell("G6").value).toBe("Paie net");
+    expect(ws.getCell("H6").value).toBe("Janvier 2026");
+    expect(ws.getCell("I6").value).toBe("Paie");
+    expect(ws.getCell("J6").value).toBe("Février 2026");
+    expect(ws.getCell("K6").value).toBe("Paie");
+    expect(ws.getCell("L6").value).toBe("Congé fait sans weekend (j)");
+    expect(ws.getCell("M6").value).toBe("Congé fait (j)");
+    expect(ws.getCell("N6").value).toBe("Total paie congé");
+    expect(ws.getCell("O6").value).toBe("Cacophat");
+    expect(ws.getCell("P6").value).toBe("Finale paie");
+  });
+
+  it("reprend la matrice de la première feuille et pré-remplit le droit de congé", async () => {
+    const { ws } = await salarySheet();
+
+    // 12 mois travaillés × 1,8333 = 21,9996 → 22,00
+    expect(ws.getCell("C7").value).toBe(22);
+    expect(ws.getCell("C8").value).toBe(22);
+    expect(ws.getCell("H7").value).toBe(4);
+    expect(ws.getCell("J7").value).toBe(3);
+    expect(ws.getCell("L7").value).toBe(7);
+    expect(ws.getCell("M7").value).toBe(9);
+
+    // Colonnes manuelles réellement vides
+    for (const ref of ["D7", "F7", "I7", "K7", "O7"]) {
+      expect(ws.getCell(ref).value).toBeNull();
+    }
+  });
+
+  it("écrit des formules Excel pour les colonnes calculées", async () => {
+    const { ws } = await salarySheet();
+
+    expect(formulaOf(ws, "E7")).toContain("D7/22");
+    expect(formulaOf(ws, "E7")).toContain("C7");
+    expect(formulaOf(ws, "G7")).toContain("E7");
+    expect(formulaOf(ws, "G7")).toContain("F7");
+    // Total paie congé = Σ (jours du mois / 22 × Paie du mois)
+    expect(formulaOf(ws, "N7")).toContain("(H7/22)*I7");
+    expect(formulaOf(ws, "N7")).toContain("(J7/22)*K7");
+    // Finale paie = Paie net − Cacophat − Total paie congé
+    expect(formulaOf(ws, "P7")).toContain("G7");
+    expect(formulaOf(ws, "P7")).toContain("O7");
+    expect(formulaOf(ws, "P7")).toContain("N7");
+
+    expect(ws.getCell("C7").numFmt).toBe("0.00");
+    expect(ws.getCell("E7").numFmt).toBe("#,##0.00");
+    expect(ws.getCell("H7").numFmt).toBe("0");
+    expect(ws.getCell("I7").numFmt).toBe("#,##0.00");
+  });
+
+  it("conserve les totaux et le filtre de la première feuille", async () => {
+    const { ws } = await salarySheet();
+
+    expect(ws.getCell("A9").value).toBe("TOTAL");
+    expect(ws.getCell("B9").value).toBe("2 employés");
+    expect(ws.getCell("H9").value).toBe(6);
+    expect(ws.getCell("J9").value).toBe(3);
+    expect(ws.getCell("L9").value).toBe(9);
+    expect(ws.getCell("M9").value).toBe(11);
+    expect(formulaOf(ws, "C9")).toBe("SUM(C7:C8)");
+    expect(formulaOf(ws, "N9")).toBe("SUM(N7:N8)");
+    expect(ws.autoFilter).toBe("A6:P8");
+    expect(ws.views[0]).toMatchObject({ state: "frozen", xSplit: 2, ySplit: 6 });
+  });
+});
+
 describe("cellNoteText", () => {
   it("détaille chaque congé du mois avec le nombre de jours du mois", () => {
     const text = cellNoteText([conges[0], conges[1]], "2026-01", (t) => TYPE_LABELS[t] ?? t);
